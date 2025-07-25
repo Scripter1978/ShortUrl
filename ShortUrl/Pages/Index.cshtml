@@ -1,0 +1,231 @@
+﻿@page
+@model IndexModel 
+@using Microsoft.AspNetCore.Identity
+@inject SignInManager<IdentityUser> SignInManager
+@inject UserManager<IdentityUser> UserManager
+
+@{
+    ViewData["Title"] = "URL Shortener";
+}
+
+@if (SignInManager.IsSignedIn(User))
+{
+    <h1>Shorten a URL</h1>
+    <form method="post" asp-page-handler="Shorten" enctype="multipart/form-data">
+        <div asp-validation-summary="All" class="text-danger"></div>
+        <div class="form-group">
+            <label for="customSlug">Custom Slug (optional):</label>
+            <input type="text" class="form-control" id="customSlug" name="CustomSlug" placeholder="e.g., my-custom-slug" />
+            <small class="form-text text-muted">Use alphanumeric characters, hyphens, or underscores.</small>
+        </div>
+        <div id="destination-urls">
+            <div class="form-group destination-url">
+                <label>Destination URL 1:</label>
+                <input type="url" class="form-control" name="DestinationUrls[0].Url" required />
+                @if (User.IsInRole("Professional") || User.IsInRole("Enterprise"))
+                {
+                    <input type="text" class="form-control" name="DestinationUrls[0].UtmSource" placeholder="UTM Source" />
+                    <input type="text" class="form-control" name="DestinationUrls[0].UtmMedium" placeholder="UTM Medium" />
+                    <input type="text" class="form-control" name="DestinationUrls[0].UtmCampaign" placeholder="UTM Campaign" />
+                }
+            </div>
+        </div>
+        @if (User.IsInRole("Professional") || User.IsInRole("Enterprise"))
+        {
+            <button type="button" onclick="addDestinationUrl()" class="btn btn-secondary mb-2">Add Another Destination URL</button>
+            <div id="og-variations">
+                <div class="form-group og-variation">
+                    <label>Social Media Metadata 1:</label>
+                    <input type="text" class="form-control" name="OgMetadataVariations[0].Title" placeholder="Title" />
+                    <textarea class="form-control" name="OgMetadataVariations[0].Description" placeholder="Description" rows="4"></textarea>
+                    <input type="file" class="form-control-file" name="OgMetadataVariations[0].ImageFile" accept="image/*" />
+                </div>
+            </div>
+            <button type="button" onclick="addOgVariation()" class="btn btn-secondary mb-2">Add Another Metadata Variation</button>
+        }
+        @if (User.IsInRole("Enterprise"))
+        {
+            <div class="form-group">
+                <label for="expirationDate">Expiration Date (optional):</label>
+                <input type="datetime-local" class="form-control" id="expirationDate" name="ExpirationDate" />
+            </div>
+            <div class="form-group">
+                <label for="password">Password (optional):</label>
+                <input type="password" class="form-control" id="password" name="Password" />
+            </div>
+        }
+        <button type="submit" class="btn btn-primary">Shorten</button>
+    </form>
+
+    @if (!string.IsNullOrEmpty(Model.ShortenedUrl))
+    {
+        <div class="alert alert-success mt-3">
+            Shortened URL: <a href="@Model.ShortenedUrl" target="_blank">@Model.ShortenedUrl</a>
+            @if (User.IsInRole("Enterprise"))
+            {
+                <a href="/qr/@Model.ShortenedUrl.Split('/').Last()" class="btn btn-sm btn-secondary ml-2">Download QR Code</a>
+            }
+        </div>
+    }
+
+    <h2 class="mt-4">Your Shortened URLs</h2>
+    @if (Model.UserUrls.Any())
+    {
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Short URL</th>
+                    <th>Created At</th>
+                    @if (User.IsInRole("Professional") || User.IsInRole("Enterprise"))
+                    {
+                        <th>Destination URLs</th>
+                        <th>Social Media Variations</th>
+                    }
+                    @if (User.IsInRole("Enterprise"))
+                    {
+                        <th>Expiration Date</th>
+                        <th>Password Protected</th>
+                    }
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var url in Model.UserUrls)
+                {
+                    <tr>
+                        <td><a href="@($"{Model.AppUrl}/{url.Code}")" target="_blank">@url.Code</a></td>
+                        <td>@url.CreatedAt.ToString("g")</td>
+                        @if (User.IsInRole("Professional") || User.IsInRole("Enterprise"))
+                        {
+                            <td>
+                                @foreach (var dest in url.DestinationUrls)
+                                {
+                                    <p>
+                                        <a href="@dest.Url" target="_blank">@dest.Url</a>
+                                        @if (!string.IsNullOrEmpty(dest.UtmSource) || !string.IsNullOrEmpty(dest.UtmMedium) || !string.IsNullOrEmpty(dest.UtmCampaign))
+                                        {
+                                            <br />
+                                            @:UTM: @(dest.UtmSource ?? "N/A"), @(dest.UtmMedium ?? "N/A"), @(dest.UtmCampaign ?? "N/A")
+                                        }
+                                        - Clicks: @url.ClickStats.Count(c => c.DestinationUrlId == dest.Id)
+                                    </p>
+                                }
+                            </td>
+                            <td>
+                                @foreach (var og in url.OgMetadataVariations)
+                                {
+                                    <p>
+                                        Title: @og.Title<br />
+                                        Description: @(og.Description.Length > 50 ? og.Description.Substring(0, 50) + "..." : og.Description)<br />
+                                        @if (!string.IsNullOrEmpty(og.Image))
+                                        {
+                                            <img src="@og.Image" alt="Social Media Image" style="max-width: 100px;" />
+                                        }
+                                        - Shares: @url.ClickStats.Count(c => c.OgMetadataId == og.Id)
+                                    </p>
+                                }
+                            </td>
+                        }
+                        @if (User.IsInRole("Enterprise"))
+                        {
+                            <td>@(url.ExpirationDate?.ToString("g") ?? "None")</td>
+                            <td>@(string.IsNullOrEmpty(url.Password) ? "No" : "Yes")</td>
+                        }
+                        <td>
+                            @if (User.IsInRole("Professional") || User.IsInRole("Enterprise"))
+                            {
+                                <a asp-page="/EditUrl" asp-route-id="@url.Id" class="btn btn-primary btn-sm">Edit</a>
+                            }
+                            @if (User.IsInRole("Enterprise"))
+                            {
+                                <a href="/qr/@url.Code" class="btn btn-secondary btn-sm">QR Code</a>
+                            }
+                            <form method="post" asp-page-handler="Delete" asp-route-id="@url.Id" style="display:inline;">
+                                <button type="submit" class="btn btn-danger btn-sm" onclick="return confirm('Are you sure you want to delete this URL?');">Delete</button>
+                            </form>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+    else
+    {
+        <p>You haven't created any URLs yet.</p>
+    }
+}
+else
+{
+    <h1>Welcome to URL Shortener</h1>
+    <p>Please <a asp-page="/Account/Login">log in</a> or <a asp-page="/Account/Register">register</a> to shorten URLs.</p>
+}
+
+@section Scripts {
+    <script>
+        let urlCount = 1;
+        let ogCount = 1;
+
+        function addDestinationUrl() {
+            urlCount++;
+            const container = document.getElementById('destination-urls');
+            const div = document.createElement('div');
+            div.className = 'form-group destination-url';
+            div.innerHTML = `
+                <label>Destination URL ${urlCount}:</label>
+                <input type="url" class="form-control" name="DestinationUrls[${urlCount - 1}].Url" required />
+                @if (User.IsInRole("Professional") || User.IsInRole("Enterprise"))
+                {
+                    <input type="text" class="form-control" name="DestinationUrls[${urlCount - 1}].UtmSource" placeholder="UTM Source" />
+                    <input type="text" class="form-control" name="DestinationUrls[${urlCount - 1}].UtmMedium" placeholder="UTM Medium" />
+                    <input type="text" class="form-control" name="DestinationUrls[${urlCount - 1}].UtmCampaign" placeholder="UTM Campaign" />
+                    <button type="button" onclick="removeDestinationUrl(this)" class="btn btn-danger btn-sm mt-1">Remove</button>
+                }
+            `;
+            container.appendChild(div);
+        }
+
+        function addOgVariation() {
+            ogCount++;
+            const container = document.getElementById('og-variations');
+            const div = document.createElement('div');
+            div.className = 'form-group og-variation';
+            div.innerHTML = `
+                <label>Social Media Metadata ${ogCount}:</label>
+                <input type="text" class="form-control" name="OgMetadataVariations[${ogCount - 1}].Title" placeholder="Title" />
+                <textarea class="form-control" name="OgMetadataVariations[${ogCount - 1}].Description" placeholder="Description" rows="4"></textarea>
+                <input type="file" class="form-control-file" name="OgMetadataVariations[${ogCount - 1}].ImageFile" accept="image/*" />
+                <button type="button" onclick="removeOgVariation(this)" class="btn btn-danger btn-sm mt-1">Remove</button>
+            `;
+            container.appendChild(div);
+        }
+
+        function removeDestinationUrl(button) {
+            button.parentElement.remove();
+            urlCount--;
+        }
+
+        function removeOgVariation(button) {
+            button.parentElement.remove();
+            ogCount--;
+        }
+
+        // Screen resolution tracking
+        document.addEventListener('DOMContentLoaded', function () {
+            const urlParams = new URLSearchParams(window.location.search);
+            const clickId = urlParams.get('clickId');
+            if (clickId) {
+                const resolution = `${window.screen.width}x${window.screen.height}`;
+                fetch('/api/update-screen-resolution', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        clickId: parseInt(clickId),
+                        screenResolution: resolution
+                    })
+                }).catch(error => console.error('Error updating screen resolution:', error));
+            }
+        });
+    </script>
+}

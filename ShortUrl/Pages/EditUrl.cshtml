@@ -1,0 +1,187 @@
+@page "/EditUrl/{id:int}"
+@model EditUrlModel
+@using Microsoft.AspNetCore.Identity
+@inject SignInManager<IdentityUser> SignInManager
+@inject UserManager<IdentityUser> UserManager
+
+@{
+    ViewData["Title"] = "Edit URL";
+}
+
+@if (!SignInManager.IsSignedIn(User) || !(await UserManager.IsInRoleAsync(await UserManager.GetUserAsync(User), "Professional") || await UserManager.IsInRoleAsync(await UserManager.GetUserAsync(User), "Enterprise")))
+{
+    <h1>Access Denied</h1>
+    <p>Only Professional or Enterprise users can edit URLs. Please <a asp-page="/Account/Login">log in</a> with an appropriate account.</p>
+}
+else
+{
+    <h1>Edit URL</h1>
+    @if (TempData["SuccessMessage"] != null)
+    {
+        <div class="alert alert-success">@TempData["SuccessMessage"]</div>
+    }
+    @if (TempData["ErrorMessage"] != null)
+    {
+        <div class="alert alert-danger">@TempData["ErrorMessage"]</div>
+    }
+    <form method="post" enctype="multipart/form-data">
+        <div asp-validation-summary="All" class="text-danger"></div>
+        <input type="hidden" asp-for="Input.Id" />
+        <div class="form-group">
+            <label asp-for="Input.Code">Custom Slug</label>
+            <input asp-for="Input.Code" class="form-control" placeholder="e.g., my-custom-slug" oninput="checkSlug(this.value)" />
+            <small class="form-text text-muted">Use alphanumeric characters, hyphens, or underscores.</small>
+            <span asp-validation-for="Input.Code" class="text-danger"></span>
+            <span id="slug-feedback" class="form-text"></span>
+        </div>
+        <div id="destination-urls">
+            @for (int i = 0; i < Model.Input.DestinationUrls.Count; i++)
+            {
+                <div class="form-group destination-url">
+                    <label>Destination URL @(i + 1):</label>
+                    <input type="url" class="form-control" asp-for="Input.DestinationUrls[i].Url" required />
+                    <input type="text" class="form-control" asp-for="Input.DestinationUrls[i].UtmSource" placeholder="UTM Source" />
+                    <input type="text" class="form-control" asp-for="Input.DestinationUrls[i].UtmMedium" placeholder="UTM Medium" />
+                    <input type="text" class="form-control" asp-for="Input.DestinationUrls[i].UtmCampaign" placeholder="UTM Campaign" />
+                    <input type="number" class="form-control" asp-for="Input.DestinationUrls[i].Weight" placeholder="Weight (1-100)" min="1" max="100" />
+                    @if (i > 0)
+                    {
+                        <button type="button" onclick="removeDestinationUrl(this)" class="btn btn-danger btn-sm mt-1">Remove</button>
+                    }
+                </div>
+            }
+        </div>
+        <button type="button" onclick="addDestinationUrl()" class="btn btn-secondary mb-2">Add Another Destination URL</button>
+        <div id="og-variations">
+            @for (int i = 0; i < Model.Input.OgMetadataVariations.Count; i++)
+            {
+                <div class="form-group og-variation">
+                    <label>Social Media Metadata @(i + 1):</label>
+                    <input type="text" class="form-control" asp-for="Input.OgMetadataVariations[i].Title" placeholder="Title" />
+                    <textarea class="form-control" asp-for="Input.OgMetadataVariations[i].Description" placeholder="Description" rows="4"></textarea>
+                    @if (!string.IsNullOrEmpty(Model.Input.OgMetadataVariations[i].Image))
+                    {
+                        <p>Current Image: <img src="@Model.Input.OgMetadataVariations[i].Image" alt="Current OG Image" style="max-width: 100px;" /></p>
+                    }
+                    <input type="file" class="form-control-file" asp-for="Input.OgMetadataVariations[i].Image" accept="image/*" onchange="validateImage(this)" />
+                    @if (i > 0)
+                    {
+                        <button type="button" onclick="removeOgVariation(this)" class="btn btn-danger btn-sm mt-1">Remove</button>
+                    }
+                </div>
+            }
+        </div>
+        <button type="button" onclick="addOgVariation()" class="btn btn-secondary mb-2">Add Another Metadata Variation</button>
+        @if (await UserManager.IsInRoleAsync(await UserManager.GetUserAsync(User), "Enterprise"))
+        {
+            <div class="form-group">
+                <label asp-for="Input.ExpirationDate">Expiration Date (optional)</label>
+                <input asp-for="Input.ExpirationDate" class="form-control" type="datetime-local" />
+                <span asp-validation-for="Input.ExpirationDate" class="text-danger"></span>
+            </div>
+            <div class="form-group">
+                <label asp-for="Input.Password">Password (optional)</label>
+                <input asp-for="Input.Password" class="form-control" type="password" />
+                <span asp-validation-for="Input.Password" class="text-danger"></span>
+            </div>
+        }
+        <button type="submit" class="btn btn-primary">Save Changes</button>
+        <a asp-page="/Index" class="btn btn-secondary">Cancel</a>
+    </form>
+}
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+    <script>
+        let urlCount = @Model.Input.DestinationUrls.Count;
+        let ogCount = @Model.Input.OgMetadataVariations.Count;
+        const maxUrls = 5;
+        const maxOgVariations = 5;
+
+        function addDestinationUrl() {
+            if (urlCount >= maxUrls) {
+                alert(`You can add up to ${maxUrls} destination URLs.`);
+                return;
+            }
+            urlCount++;
+            const container = document.getElementById('destination-urls');
+            const div = document.createElement('div');
+            div.className = 'form-group destination-url';
+            div.innerHTML = `
+                <label>Destination URL ${urlCount}:</label>
+                <input type="url" class="form-control" name="Input.DestinationUrls[${urlCount - 1}].Url" required />
+                <input type="text" class="form-control" name="Input.DestinationUrls[${urlCount - 1}].UtmSource" placeholder="UTM Source" />
+                <input type="text" class="form-control" name="Input.DestinationUrls[${urlCount - 1}].UtmMedium" placeholder="UTM Medium" />
+                <input type="text" class="form-control" name="Input.DestinationUrls[${urlCount - 1}].UtmCampaign" placeholder="UTM Campaign" />
+                <input type="number" class="form-control" name="Input.DestinationUrls[${urlCount - 1}].Weight" placeholder="Weight (1-100)" min="1" max="100" />
+                <button type="button" onclick="removeDestinationUrl(this)" class="btn btn-danger btn-sm mt-1">Remove</button>
+            `;
+            container.appendChild(div);
+        }
+
+        function addOgVariation() {
+            if (ogCount >= maxOgVariations) {
+                alert(`You can add up to ${maxOgVariations} metadata variations.`);
+                return;
+            }
+            ogCount++;
+            const container = document.getElementById('og-variations');
+            const div = document.createElement('div');
+            div.className = 'form-group og-variation';
+            div.innerHTML = `
+                <label>Social Media Metadata ${ogCount}:</label>
+                <input type="text" class="form-control" name="Input.OgMetadataVariations[${ogCount - 1}].Title" placeholder="Title" />
+                <textarea class="form-control" name="Input.OgMetadataVariations[${ogCount - 1}].Description" placeholder="Description" rows="4"></textarea>
+                <input type="file" class="form-control-file" name="Input.OgMetadataVariations[${ogCount - 1}].ImageFile" accept="image/*" onchange="validateImage(this)" />
+                <button type="button" onclick="removeOgVariation(this)" class="btn btn-danger btn-sm mt-1">Remove</button>
+            `;
+            container.appendChild(div);
+        }
+
+        function removeDestinationUrl(button) {
+            if (document.querySelectorAll('.destination-url').length > 1) {
+                button.parentElement.remove();
+                urlCount--;
+            } else {
+                alert('At least one destination URL is required.');
+            }
+        }
+
+        function removeOgVariation(button) {
+            button.parentElement.remove();
+            ogCount--;
+        }
+
+        function checkSlug(slug) {
+            if (!slug) {
+                document.getElementById('slug-feedback').innerText = '';
+                return;
+            }
+            fetch(`/api/check-slug/${encodeURIComponent(slug)}`)
+                .then(response => response.json())
+                .then(data => {
+                    const feedback = document.getElementById('slug-feedback');
+                    feedback.innerText = data.message;
+                    feedback.className = `form-text text-${data.isAvailable ? 'success' : 'danger'}`;
+                })
+                .catch(() => {
+                    document.getElementById('slug-feedback').innerText = 'Error checking slug availability.';
+                    document.getElementById('slug-feedback').className = 'form-text text-danger';
+                });
+        }
+
+        function validateImage(input) {
+            const maxSize = 2 * 1024 * 1024; // 2MB
+            if (input.files && input.files[0]) {
+                const file = input.files[0];
+                if (!file.type.startsWith('image/')) {
+                    alert('Please upload an image file.');
+                    input.value = '';
+                } else if (file.size > maxSize) {
+                    alert('Image size must be less than 2MB.');
+                    input.value = '';
+                }
+            }
+        }
+    </script>
+}

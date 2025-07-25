@@ -1,0 +1,40 @@
+@page
+@model ShortUrl.Pages.Account.UpgradeModel
+@{
+    ViewData["Title"] = "Upgrade Subscription";
+}
+
+<h1>Upgrade Subscription</h1>
+
+@if (User.IsInRole("Free") || User.IsInRole("Basic") || User.IsInRole("Professional"))
+{
+    <p>Upgrade your account to access more features.</p>
+    <form method="post">
+        <div asp-validation-summary="All" class="text-danger"></div>
+        <div class="form-group">
+            <label for="SubscriptionTier">Select Tier</label>
+            <select asp-for="Input.SubscriptionTier" class="form-control">
+                @if (User.IsInRole("Free"))
+                {
+                    <option value="Basic">Basic ($5/month - Stats)</option>
+                }
+                @if (User.IsInRole("Free") || User.IsInRole("Basic"))
+                {
+                    <option value="Professional">Professional ($10/month - UTM Parameters, Edit URLs)</option>
+                }
+                <option value="Enterprise">Enterprise ($20/month - QR Codes)</option>
+            </select>
+            <span asp-validation-for="Input.SubscriptionTier" class="text-danger"></span>
+        </div>
+        <button type="submit" class="btn btn-primary">Upgrade Now</button>
+    </form>
+}
+else if (User.IsInRole("Enterprise"))
+{
+    <p>You are already on the Enterprise plan with all features.</p>
+    <p><a asp-page="/Stats">View your URL stats</a></p>
+}
+else
+{
+    <p>Please <a asp-page="/Account/Login">log in</a> to upgrade your account.</p>
+}

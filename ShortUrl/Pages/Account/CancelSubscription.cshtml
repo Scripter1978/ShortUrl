@@ -1,0 +1,25 @@
+@page
+@model ShortUrl.Pages.Account.CancelSubscriptionModel
+@{
+    ViewData["Title"] = "Cancel Subscription";
+}
+
+<h1>Cancel Subscription</h1>
+
+@if (User.IsInRole("Basic") || User.IsInRole("Professional") || User.IsInRole("Enterprise"))
+{
+    <p>Are you sure you want to cancel your subscription? You will revert to a Free account and lose access to premium features.</p>
+    <form method="post">
+        <div asp-validation-summary="All" class="text-danger"></div>
+        <button type="submit" class="btn btn-danger">Cancel Subscription</button>
+        <a asp-page="/Index" class="btn btn-secondary">Keep Subscription</a>
+    </form>
+}
+else if (User.IsInRole("Free"))
+{
+    <p>You are not a paid member. <a asp-page="/Account/Upgrade">Upgrade to access premium features</a>.</p>
+}
+else
+{
+    <p>Please <a asp-page="/Account/Login">log in</a> to manage your subscription.</p>
+}

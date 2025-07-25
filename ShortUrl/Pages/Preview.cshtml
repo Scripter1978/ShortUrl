@@ -1,0 +1,97 @@
+@page "{code}"
+@model ShortUrl.Pages.PreviewModel
+@{
+    ViewData["Title"] = "URL Preview";
+}
+
+<h1>URL Preview</h1>
+
+@if (Model.ShortUrl != null)
+{
+    <div class="url-details">
+        <h3>Shortened URL</h3>
+        <p><strong>Short Code:</strong> @Model.ShortUrl.Code</p>
+        <p><strong>Original URL:</strong> <a href="@Model.ShortUrl.OriginalUrl" target="_blank">@Model.ShortUrl.OriginalUrl</a></p>
+        <p><strong>Shortened URL:</strong> <a href="@($"{Request.Scheme}://{Request.Host}/{Model.ShortUrl.Code}")" target="_blank">@($"{Request.Scheme}://{Request.Host}/{Model.ShortUrl.Code}")</a></p>
+    </div>
+
+    @if (Model.IsProfessionalOrHigher && Model.ClickStats.Any())
+    {
+        <h3>Click Statistics</h3>
+        <table class="table table-bordered">
+            <thead>
+                <tr>
+                    <th>Time</th>
+                    <th>IP Address</th>
+                    @if (Model.IsProfessionalOrHigher)
+                    {
+                        <th>Country</th>
+                        <th>City</th>
+                        <th>Referrer</th>
+                        <th>Device</th>
+                        <th>Browser</th>
+                        <th>OS</th>
+                        <th>Language</th>
+                        <th>Screen Resolution</th>
+                    }
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var stat in Model.ClickStats)
+                {
+                    <tr>
+                        <td>@stat.ClickedAt.ToUniversalTime().ToString("o")</td>
+                        <td>@(stat.IpAddress ?? "N/A")</td>
+                        @if (Model.IsProfessionalOrHigher)
+                        {
+                            <td>@(stat.Country ?? "N/A")</td>
+                            <td>@(stat.City ?? "N/A")</td>
+                            <td>@(stat.Referrer ?? "N/A")</td>
+                            <td>@(stat.Device ?? "N/A")</td>
+                            <td>@(stat.Browser ?? "N/A")</td>
+                            <td>@(stat.OperatingSystem ?? "N/A")</td>
+                            <td>@(stat.Language ?? "N/A")</td>
+                            <td>@(stat.ScreenResolution ?? "N/A")</td>
+                        }
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+    else if (Model.IsProfessionalOrHigher)
+    {
+        <p>No click statistics available for this URL.</p>
+    }
+    else
+    {
+        <p>Upgrade to a Paid account to view click statistics.</p>
+    }
+}
+else
+{
+    <p>URL not found.</p>
+}
+
+@section Scripts {
+    <style>
+        .url-details {
+            margin-bottom: 20px;
+        }
+        .table {
+            width: 100%;
+            max-width: 100%;
+            margin-bottom: 1rem;
+            background-color: transparent;
+        }
+        .table th,
+        .table td {
+            padding: 0.75rem;
+            vertical-align: top;
+            border: 1px solid #dee2e6;
+        }
+        .table thead th {
+            vertical-align: bottom;
+            border-bottom: 2px solid #dee2e6;
+        }
+    </style>
+}

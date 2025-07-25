@@ -1,0 +1,40 @@
+﻿<!DOCTYPE html>
+<html>
+<head>
+    <title>@ViewData["Title"] - URL Shortener</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" />
+</head>
+<body>
+<nav class="navbar navbar-expand-lg navbar-light bg-light">
+    <a class="navbar-brand" href="/">URL Shortener</a>
+    <div class="navbar-nav">
+        @if (User.Identity is { IsAuthenticated: true })
+        {
+            <a class="nav-link" asp-page="/Index">Home</a>
+            @if (User.IsInRole("Basic") || User.IsInRole("Professional") || User.IsInRole("Enterprise"))
+            {
+                <a class="nav-link" asp-page="/Stats">Stats</a>
+            }
+            @if (User.IsInRole("Free") || User.IsInRole("Basic") || User.IsInRole("Professional"))
+            {
+                <a class="nav-link" asp-page="/Account/Upgrade">Upgrade</a>
+            }
+            @if (User.IsInRole("Basic") || User.IsInRole("Professional") || User.IsInRole("Enterprise"))
+            {
+                <a class="nav-link" asp-page="/Account/CancelSubscription">Cancel Subscription</a>
+            }
+            <a class="nav-link" asp-page="/Account/Logout">Logout</a>
+        }
+        else
+        {
+            <a class="nav-link" asp-page="/Account/Login">Login</a>
+            <a class="nav-link" asp-page="/Account/Register">Register</a>
+        }
+    </div>
+</nav>
+<div class="container">
+    @RenderBody()
+</div>
+@await RenderSectionAsync("Scripts", required: false)
+</body>
+</html>
