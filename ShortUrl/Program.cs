@@ -10,6 +10,8 @@ using UAParser;
 using Microsoft.Extensions.Caching.Memory;
 using System.Text.RegularExpressions;
 using ShortUrl.Models;
+using Microsoft.AspNetCore.SignalR;
+using ShortUrl.Hubs;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -27,14 +29,13 @@ builder.Services.AddIdentity<IdentityUser, IdentityRole>(options =>
 .AddDefaultTokenProviders()
 .AddRoles<IdentityRole>();
 
-builder.Services.AddAuthorization(options =>
-{
-    options.AddPolicy("BasicClient", policy => policy.RequireRole("Basic", "Professional", "Enterprise"));
-    options.AddPolicy("ProfessionalClient", policy => policy.RequireRole("Professional", "Enterprise"));
-    options.AddPolicy("EnterpriseClient", policy => policy.RequireRole("Enterprise"));
-});
+builder.Services.AddAuthorizationBuilder()
+    .AddPolicy("BasicClient", policy => policy.RequireRole("Basic", "Professional", "Enterprise"))
+    .AddPolicy("ProfessionalClient", policy => policy.RequireRole("Professional", "Enterprise"))
+    .AddPolicy("EnterpriseClient", policy => policy.RequireRole("Enterprise"));
 
 builder.Services.AddRazorPages();
+builder.Services.AddSignalR(); // Add SignalR
 builder.Services.AddScoped<UrlShortenerService>();
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddHttpClient();
@@ -43,7 +44,7 @@ builder.Services.AddScoped<IAuditService, AuditService>();
 
 var app = builder.Build();
 
-// Configure Stripe API key
+// Configure the Stripe API key
 StripeConfiguration.ApiKey = builder.Configuration["Stripe:SecretKey"];
 
 // Configure the HTTP request pipeline.
@@ -61,7 +62,9 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapRazorPages();
-app.MapGet("/{code}", async (string code, ApplicationDbContext db, HttpContext httpContext, IHttpClientFactory httpClientFactory, IConfiguration configuration, IHttpContextAccessor httpContextAccessor, IMemoryCache cache) =>
+app.MapHub<ClickHub>("/clickHub"); // Map SignalR hub
+
+app.MapGet("/{code}", async (string code, ApplicationDbContext db, HttpContext httpContext, IHttpClientFactory httpClientFactory, IConfiguration configuration, IHttpContextAccessor httpContextAccessor, IMemoryCache cache, IHubContext<ClickHub> hubContext) =>
 {
     var cacheKey = $"ShortUrl_{code}";
     var shortUrl = await cache.GetOrCreateAsync(cacheKey, async entry =>
@@ -74,17 +77,12 @@ app.MapGet("/{code}", async (string code, ApplicationDbContext db, HttpContext h
             .FirstOrDefaultAsync(s => s.Code == code);
     });
 
-    if (shortUrl == null || shortUrl.IsDeleted)
+    if (shortUrl == null || shortUrl.IsDeleted || shortUrl.ExpirationDate.HasValue && shortUrl.ExpirationDate.Value < DateTime.UtcNow)
     {
         return Results.Redirect("/InvalidUrl");
     }
 
-    if (shortUrl.ExpirationDate.HasValue && shortUrl.ExpirationDate.Value < DateTime.UtcNow)
-    {
-        return Results.Redirect("/InvalidUrl");
-    }
-
-    var userAgent = httpContext.Request.Headers["User-Agent"].ToString().ToLower();
+    var userAgent = httpContext.Request.Headers.UserAgent.ToString().ToLower();
     var isSocialMediaCrawler = userAgent.Contains("facebookexternalhit") ||
                                userAgent.Contains("twitterbot") ||
                                userAgent.Contains("linkedinbot") ||
@@ -105,7 +103,7 @@ app.MapGet("/{code}", async (string code, ApplicationDbContext db, HttpContext h
         return Results.Redirect($"/Password/{code}");
     }
 
-    if (!shortUrl.DestinationUrls.Any())
+    if (shortUrl.DestinationUrls.Count == 0)
     {
         return Results.Redirect("/InvalidUrl");
     }
@@ -124,7 +122,7 @@ app.MapGet("/{code}", async (string code, ApplicationDbContext db, HttpContext h
             var client = httpClientFactory.CreateClient();
             var geoUrl = string.Format(configuration["GeoLocation:ApiUrl"], ipAddress);
             var response = await client.GetFromJsonAsync<GeoLocationResponse>(geoUrl);
-            if (response != null && response.Error == false)
+            if (response is { Error: false })
             {
                 country = response.CountryName;
                 city = response.City;
@@ -141,7 +139,7 @@ app.MapGet("/{code}", async (string code, ApplicationDbContext db, HttpContext h
     string? browser = null;
     string? language = null;
     string? operatingSystem = null;
-    bool isProfessionalOrHigher = false;
+    var isProfessionalOrHigher = false;
     if (shortUrl.User != null)
     {
         var roles = await db.UserRoles
@@ -153,13 +151,13 @@ app.MapGet("/{code}", async (string code, ApplicationDbContext db, HttpContext h
 
     if (isProfessionalOrHigher)
     {
-        referrer = httpContext.Request.Headers["Referer"].ToString();
+        referrer = httpContext.Request.Headers.Referer.ToString();
         var uaParser = Parser.GetDefault();
-        var ua = uaParser.Parse(httpContext.Request.Headers["User-Agent"].ToString());
+        var ua = uaParser.Parse(httpContext.Request.Headers.UserAgent.ToString());
         device = ua.Device.Family;
         browser = $"{ua.Browser.Family} {ua.Browser.Major}.{ua.Browser.Minor}";
         operatingSystem = $"{ua.OS.Family} {ua.OS.Major}.{ua.OS.Minor}";
-        language = httpContext.Request.Headers["Accept-Language"].ToString().Split(',').FirstOrDefault()?.Split(';').FirstOrDefault();
+        language = httpContext.Request.Headers.AcceptLanguage.ToString().Split(',').FirstOrDefault()?.Split(';').FirstOrDefault();
     }
 
     var clickStat = new ClickStat
@@ -192,9 +190,26 @@ app.MapGet("/{code}", async (string code, ApplicationDbContext db, HttpContext h
     query["clickId"] = clickStat.Id.ToString();
     uriBuilder.Query = query.ToString();
 
+    // Notify clients of a new click
+    var totalClicks = await db.ClickStats.CountAsync(c => c.ShortUrlId == shortUrl.Id);
+    var destinationClicks = await db.ClickStats
+        .Where(c => c.ShortUrlId == shortUrl.Id)
+        .GroupBy(c => c.DestinationUrlId)
+        .ToDictionaryAsync(g => g.Key ?? 0, g => g.Count());
+    var ogClicks = await db.ClickStats
+        .Where(c => c.ShortUrlId == shortUrl.Id)
+        .GroupBy(c => c.OgMetadataId)
+        .ToDictionaryAsync(g => g.Key ?? 0, g => g.Count());
+    await hubContext.Clients.All.SendAsync("ReceiveClickUpdate", code, totalClicks, destinationClicks, ogClicks);
+
     await db.SaveChangesAsync();
-    cache.Remove(cacheKey); // Invalidate cache after update
+    cache.Remove(cacheKey);
     return Results.Redirect(uriBuilder.ToString());
+});
+app.MapPost("/Account/Logout", async (SignInManager<IdentityUser> signInManager, HttpContext httpContext) =>
+{
+    await signInManager.SignOutAsync();
+    return Results.Redirect("/");
 });
 
 app.MapGet("/api/check-slug/{slug}", async (string slug, ApplicationDbContext db) =>
@@ -203,20 +218,17 @@ app.MapGet("/api/check-slug/{slug}", async (string slug, ApplicationDbContext db
     {
         return Results.Json(new { isAvailable = false, message = "Invalid slug format." });
     }
-    bool isAvailable = !await db.ShortUrls.AnyAsync(s => s.Code.ToLower() == slug.ToLower());
+    var isAvailable = !await db.ShortUrls.AnyAsync(s => s.Code.ToLower() == slug.ToLower());
     return Results.Json(new { isAvailable, message = isAvailable ? "Slug is available." : "Slug is already in use." });
 });
 
 app.MapPost("/api/update-screen-resolution", async (ApplicationDbContext db, [FromBody] ScreenResolutionRequest request) =>
 {
     var clickStat = await db.ClickStats.FindAsync(request.ClickId);
-    if (clickStat != null)
-    {
-        clickStat.ScreenResolution = request.ScreenResolution;
-        await db.SaveChangesAsync();
-        return Results.Ok();
-    }
-    return Results.NotFound();
+    if (clickStat == null) return Results.NotFound();
+    clickStat.ScreenResolution = request.ScreenResolution;
+    await db.SaveChangesAsync();
+    return Results.Ok();
 });
 
 app.MapGet("/qr/{code}", async (string code, ApplicationDbContext db, IConfiguration configuration) =>
@@ -249,54 +261,61 @@ app.MapPost("/webhook/stripe", async (
             configuration["Stripe:WebhookSecret"]
         );
 
-        if (stripeEvent.Type == EventTypes.CustomerSubscriptionCreated)
+        switch (stripeEvent.Type)
         {
-            var subscription = stripeEvent.Data.Object as Subscription;
-            var userStripeInfo = await db.UserStripeInfos
-                .FirstOrDefaultAsync(u => u.StripeCustomerId == subscription.CustomerId);
-            if (userStripeInfo != null)
+            case EventTypes.CustomerSubscriptionCreated:
             {
-                var user = await userManager.FindByIdAsync(userStripeInfo.UserId);
-                if (user != null)
+                var subscription = stripeEvent.Data.Object as Subscription;
+                var userStripeInfo = await db.UserStripeInfos
+                    .FirstOrDefaultAsync(u => u.StripeCustomerId == subscription.CustomerId);
+                if (userStripeInfo != null)
                 {
-                    string newRole = subscription.Id switch
+                    var user = await userManager.FindByIdAsync(userStripeInfo.UserId);
+                    if (user != null)
                     {
-                        string id when id == configuration["Stripe:BasicPriceId"] => "Basic",
-                        string id when id == configuration["Stripe:ProfessionalPriceId"] => "Professional",
-                        string id when id == configuration["Stripe:EnterprisePriceId"] => "Enterprise",
-                        _ => null
-                    };
-                    if (newRole != null)
+                        var newRole = subscription.Id switch
+                        {
+                            { } id when id == configuration["Stripe:BasicPriceId"] => "Basic",
+                            { } id when id == configuration["Stripe:ProfessionalPriceId"] => "Professional",
+                            { } id when id == configuration["Stripe:EnterprisePriceId"] => "Enterprise",
+                            _ => null
+                        };
+                        if (newRole != null)
+                        {
+                            var currentRoles = await userManager.GetRolesAsync(user);
+                            foreach (var role in currentRoles)
+                            {
+                                await userManager.RemoveFromRoleAsync(user, role);
+                            }
+                            await userManager.AddToRoleAsync(user, newRole);
+                            await db.SaveChangesAsync();
+                        }
+                    }
+                }
+
+                break;
+            }
+            case EventTypes.CustomerSubscriptionDeleted:
+            {
+                var subscription = stripeEvent.Data.Object as Subscription;
+                var userStripeInfo = await db.UserStripeInfos
+                    .FirstOrDefaultAsync(u => u.StripeCustomerId == subscription.CustomerId);
+                if (userStripeInfo != null)
+                {
+                    var user = await userManager.FindByIdAsync(userStripeInfo.UserId);
+                    if (user != null)
                     {
                         var currentRoles = await userManager.GetRolesAsync(user);
                         foreach (var role in currentRoles)
                         {
                             await userManager.RemoveFromRoleAsync(user, role);
                         }
-                        await userManager.AddToRoleAsync(user, newRole);
+                        await userManager.AddToRoleAsync(user, "Free");
                         await db.SaveChangesAsync();
                     }
                 }
-            }
-        }
-        else if (stripeEvent.Type == EventTypes.CustomerSubscriptionDeleted)
-        {
-            var subscription = stripeEvent.Data.Object as Subscription;
-            var userStripeInfo = await db.UserStripeInfos
-                .FirstOrDefaultAsync(u => u.StripeCustomerId == subscription.CustomerId);
-            if (userStripeInfo != null)
-            {
-                var user = await userManager.FindByIdAsync(userStripeInfo.UserId);
-                if (user != null)
-                {
-                    var currentRoles = await userManager.GetRolesAsync(user);
-                    foreach (var role in currentRoles)
-                    {
-                        await userManager.RemoveFromRoleAsync(user, role);
-                    }
-                    await userManager.AddToRoleAsync(user, "Free");
-                    await db.SaveChangesAsync();
-                }
+
+                break;
             }
         }
 
@@ -323,6 +342,7 @@ using (var scope = app.Services.CreateScope())
 }
 
 app.Run();
+return;
 
 DestinationUrl SelectWeightedDestinationUrl(UrlShort shortUrl)
 {
@@ -340,16 +360,16 @@ DestinationUrl SelectWeightedDestinationUrl(UrlShort shortUrl)
     return shortUrl.DestinationUrls[shortUrl.CurrentDestinationIndex];
 }
 
-public class GeoLocationResponse
+internal class GeoLocationResponse
 {
-    public string Ip { get; set; }
-    public string City { get; set; }
-    public string Region { get; set; }
-    public string CountryName { get; set; }
-    public bool Error { get; set; }
+    public string Ip { get; init; }
+    public string City { get; init; }
+    public string Region { get; init; }
+    public string CountryName { get; init; }
+    public bool Error { get; init; }
 }
 
-public class ScreenResolutionRequest
+internal class ScreenResolutionRequest
 {
     public int ClickId { get; set; }
     public string ScreenResolution { get; set; }

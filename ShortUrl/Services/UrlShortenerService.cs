@@ -1,7 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using ShortUrl.Data;
 using ShortUrl.Models;
-using System.Text.RegularExpressions; 
+using System.Text.RegularExpressions;
 
 namespace ShortUrl.Services
 {
@@ -67,6 +67,17 @@ namespace ShortUrl.Services
             await _dbContext.SaveChangesAsync();
 
             return code;
+        }
+
+        public async Task DeleteShortUrlAsync(string code)
+        {
+            var shortUrl = await _dbContext.ShortUrls
+                .FirstOrDefaultAsync(s => s.Code == code && !s.IsDeleted);
+            if (shortUrl != null)
+            {
+                shortUrl.IsDeleted = true;
+                await _dbContext.SaveChangesAsync();
+            }
         }
 
         private string GenerateCode(int length)

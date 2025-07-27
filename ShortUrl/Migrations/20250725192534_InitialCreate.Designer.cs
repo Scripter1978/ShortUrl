@@ -12,7 +12,7 @@ using ShortUrl.Data;
 namespace ShortUrl.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    [Migration("20250722013623_InitialCreate")]
+    [Migration("20250725192534_InitialCreate")]
     partial class InitialCreate
     {
         /// <inheritdoc />
@@ -221,6 +221,43 @@ namespace ShortUrl.Migrations
                     b.ToTable("AspNetUserTokens", (string)null);
                 });
 
+            modelBuilder.Entity("ShortUrl.Models.AuditLog", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Action")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Details")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<int>("EntityId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("EntityType")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("Timestamp")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("UserId")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("AuditLogs");
+                });
+
             modelBuilder.Entity("ShortUrl.Models.ClickStat", b =>
                 {
                     b.Property<int>("Id")
@@ -233,25 +270,28 @@ namespace ShortUrl.Migrations
                         .HasColumnType("text");
 
                     b.Property<string>("City")
-                        .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<DateTime>("ClickedAt")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("Country")
-                        .IsRequired()
                         .HasColumnType("text");
+
+                    b.Property<int?>("DestinationUrlId")
+                        .HasColumnType("integer");
 
                     b.Property<string>("Device")
                         .HasColumnType("text");
 
                     b.Property<string>("IpAddress")
-                        .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<string>("Language")
                         .HasColumnType("text");
+
+                    b.Property<int?>("OgMetadataId")
+                        .HasColumnType("integer");
 
                     b.Property<string>("OperatingSystem")
                         .HasColumnType("text");
@@ -265,7 +305,7 @@ namespace ShortUrl.Migrations
                     b.Property<int>("ShortUrlId")
                         .HasColumnType("integer");
 
-                    b.Property<int>("UrlShortId")
+                    b.Property<int?>("UrlShortId")
                         .HasColumnType("integer");
 
                     b.HasKey("Id");
@@ -273,6 +313,75 @@ namespace ShortUrl.Migrations
                     b.HasIndex("UrlShortId");
 
                     b.ToTable("ClickStats");
+                });
+
+            modelBuilder.Entity("ShortUrl.Models.DestinationUrl", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("ShortUrlId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Url")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<int?>("UrlShortId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("UtmCampaign")
+                        .HasColumnType("text");
+
+                    b.Property<string>("UtmMedium")
+                        .HasColumnType("text");
+
+                    b.Property<string>("UtmSource")
+                        .HasColumnType("text");
+
+                    b.Property<int?>("Weight")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UrlShortId");
+
+                    b.ToTable("DestinationUrls");
+                });
+
+            modelBuilder.Entity("ShortUrl.Models.OgMetadata", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Image")
+                        .HasColumnType("text");
+
+                    b.Property<int>("ShortUrlId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<int?>("UrlShortId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UrlShortId");
+
+                    b.ToTable("OgMetadataVariations");
                 });
 
             modelBuilder.Entity("ShortUrl.Models.UrlShort", b =>
@@ -290,24 +399,17 @@ namespace ShortUrl.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<int>("CurrentDestinationIndex")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("CurrentOgMetadataIndex")
+                        .HasColumnType("integer");
+
                     b.Property<DateTime?>("ExpirationDate")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("boolean");
-
-                    b.Property<string>("OgDescription")
-                        .HasColumnType("text");
-
-                    b.Property<string>("OgImage")
-                        .HasColumnType("text");
-
-                    b.Property<string>("OgTitle")
-                        .HasColumnType("text");
-
-                    b.Property<string>("OriginalUrl")
-                        .IsRequired()
-                        .HasColumnType("text");
 
                     b.Property<string>("Password")
                         .HasColumnType("text");
@@ -316,16 +418,9 @@ namespace ShortUrl.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
-                    b.Property<string>("UtmCampaign")
-                        .HasColumnType("text");
-
-                    b.Property<string>("UtmMedium")
-                        .HasColumnType("text");
-
-                    b.Property<string>("UtmSource")
-                        .HasColumnType("text");
-
                     b.HasKey("Id");
+
+                    b.HasIndex("UserId");
 
                     b.ToTable("ShortUrls");
                 });
@@ -402,20 +497,56 @@ namespace ShortUrl.Migrations
                         .IsRequired();
                 });
 
-            modelBuilder.Entity("ShortUrl.Models.ClickStat", b =>
+            modelBuilder.Entity("ShortUrl.Models.AuditLog", b =>
                 {
-                    b.HasOne("ShortUrl.Models.UrlShort", "UrlShort")
-                        .WithMany("ClickStats")
-                        .HasForeignKey("UrlShortId")
+                    b.HasOne("Microsoft.AspNetCore.Identity.IdentityUser", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.Navigation("UrlShort");
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("ShortUrl.Models.ClickStat", b =>
+                {
+                    b.HasOne("ShortUrl.Models.UrlShort", null)
+                        .WithMany("ClickStats")
+                        .HasForeignKey("UrlShortId");
+                });
+
+            modelBuilder.Entity("ShortUrl.Models.DestinationUrl", b =>
+                {
+                    b.HasOne("ShortUrl.Models.UrlShort", null)
+                        .WithMany("DestinationUrls")
+                        .HasForeignKey("UrlShortId");
+                });
+
+            modelBuilder.Entity("ShortUrl.Models.OgMetadata", b =>
+                {
+                    b.HasOne("ShortUrl.Models.UrlShort", null)
+                        .WithMany("OgMetadataVariations")
+                        .HasForeignKey("UrlShortId");
+                });
+
+            modelBuilder.Entity("ShortUrl.Models.UrlShort", b =>
+                {
+                    b.HasOne("Microsoft.AspNetCore.Identity.IdentityUser", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("ShortUrl.Models.UrlShort", b =>
                 {
                     b.Navigation("ClickStats");
+
+                    b.Navigation("DestinationUrls");
+
+                    b.Navigation("OgMetadataVariations");
                 });
 #pragma warning restore 612, 618
         }

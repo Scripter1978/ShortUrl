@@ -1,0 +1,39 @@
+@page "/Profile"
+@model ProfileModel
+@using Microsoft.AspNetCore.Identity
+@{
+    ViewData["Title"] = "Profile";
+}
+
+<div class="container mt-5" style="max-width: 600px;">
+    <h2 class="mb-4"><i class="fas fa-user-circle me-2"></i>Your Profile</h2>
+    <form method="post">
+        <div class="mb-3">
+            <label class="form-label">Email</label>
+            <input asp-for="Email" class="form-control" readonly />
+        </div>
+        <div class="mb-3">
+            <label class="form-label">Roles</label>
+            <input value="@string.Join(", ", Model.Roles)" class="form-control" readonly />
+        </div>
+        <div class="mb-3">
+            <label class="form-label">Change Password</label>
+            <input asp-for="NewPassword" class="form-control" type="password" placeholder="New password" />
+            <span asp-validation-for="NewPassword" class="text-danger"></span>
+        </div>
+        <div class="mb-3">
+            <label class="form-label">Confirm Password</label>
+            <input asp-for="ConfirmPassword" class="form-control" type="password" placeholder="Confirm new password" />
+            <span asp-validation-for="ConfirmPassword" class="text-danger"></span>
+        </div>
+        <button type="submit" class="btn btn-primary">Update Password</button>
+    </form>
+    @if (Model.StatusMessage != null)
+    {
+        <div class="alert alert-info mt-3">@Model.StatusMessage</div>
+    }
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

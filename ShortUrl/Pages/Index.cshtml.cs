@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.EntityFrameworkCore; 
 using System.Security.Claims;
 using ShortUrl.Data;
+using ShortUrl.Helpers;
 using ShortUrl.Models;
 using ShortUrl.Services;
 
@@ -61,6 +62,7 @@ namespace ShortUrl.Pages
 
         public async Task<IActionResult> OnPostShortenAsync()
         {
+            
             if (!ModelState.IsValid || !DestinationUrls.Any() || DestinationUrls.Any(d => string.IsNullOrWhiteSpace(d.Url)))
             {
                 ModelState.AddModelError("", "At least one valid destination URL is required.");
@@ -68,7 +70,16 @@ namespace ShortUrl.Pages
                 return Page();
             }
 
-            var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            var currentCount = await _dbContext.ShortUrls.CountAsync(u => u.UserId == userId);
+            var limit = UrlLimiter.GetShortUrlLimitForUser(User);
+
+            if (limit.HasValue && currentCount >= limit.Value)
+            {
+                ModelState.AddModelError(string.Empty, $"You have reached your limit of {limit.Value} shortened URLs.");
+                return Page(); // or return a suitable response
+            }
             var isProfessionalOrHigher = await _userManager.IsInRoleAsync(await _userManager.FindByIdAsync(userId), "Professional") ||
                                         await _userManager.IsInRoleAsync(await _userManager.FindByIdAsync(userId), "Enterprise");
             var isEnterprise = await _userManager.IsInRoleAsync(await _userManager.FindByIdAsync(userId), "Enterprise");
