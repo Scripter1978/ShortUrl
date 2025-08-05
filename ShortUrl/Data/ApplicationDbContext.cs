@@ -12,12 +12,13 @@ namespace ShortUrl.Data
         {
         }
 
-        public DbSet<UrlShort> ShortUrls { get; set; }
+        public DbSet<UrlShort> UrlShorts { get; set; }
         public DbSet<ClickStat> ClickStats { get; set; }
         public DbSet<UserStripeInfo> UserStripeInfos { get; set; }
         public DbSet<DestinationUrl> DestinationUrls { get; set; }
         public DbSet<OgMetadata> OgMetadataVariations { get; set; }
         public DbSet<AuditLog> AuditLogs { get; set; }
+        public DbSet<VCard> VCards { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {

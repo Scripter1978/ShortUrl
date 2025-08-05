@@ -51,27 +51,27 @@ namespace ShortUrl.Pages
                 return Page();
             }
 
-            var shortUrl = await _dbContext.ShortUrls
+            var urlShort = await _dbContext.UrlShorts
                 .Include(s => s.User)
                 .Include(s => s.DestinationUrls)
                 .FirstOrDefaultAsync(s => s.Code == Input.Code && !s.IsDeleted);
-            if (shortUrl == null || (shortUrl.ExpirationDate.HasValue && shortUrl.ExpirationDate.Value < DateTime.UtcNow))
+            if (urlShort == null || (urlShort.ExpirationDate.HasValue && urlShort.ExpirationDate.Value < DateTime.UtcNow))
             {
                 return RedirectToPage("/InvalidUrl");
             }
 
-            if (string.IsNullOrEmpty(shortUrl.Password) || !BCrypt.Net.BCrypt.Verify(Input.Password, shortUrl.Password))
+            if (string.IsNullOrEmpty(urlShort.Password) || !BCrypt.Net.BCrypt.Verify(Input.Password, urlShort.Password))
             {
                 ModelState.AddModelError("Input.Password", "Incorrect password.");
                 return Page();
             }
 
-            if (!shortUrl.DestinationUrls.Any())
+            if (!urlShort.DestinationUrls.Any())
             {
                 return RedirectToPage("/InvalidUrl");
             }
-            var destinationUrl = SelectWeightedDestinationUrl(shortUrl);
-            shortUrl.CurrentDestinationIndex = (shortUrl.CurrentDestinationIndex + 1) % shortUrl.DestinationUrls.Count;
+            var destinationUrl = SelectWeightedDestinationUrl(urlShort);
+            urlShort.CurrentDestinationIndex = (urlShort.CurrentDestinationIndex + 1) % urlShort.DestinationUrls.Count;
 
             string? country = null;
             string? city = null;
@@ -96,10 +96,10 @@ namespace ShortUrl.Pages
             }
 
             bool isProfessionalOrHigher = false;
-            if (shortUrl.User != null)
+            if (urlShort.User != null)
             {
                 var roles = await _dbContext.UserRoles
-                    .Where(ur => ur.UserId == shortUrl.UserId)
+                    .Where(ur => ur.UserId == urlShort.UserId)
                     .Join(_dbContext.Roles, ur => ur.RoleId, r => r.Id, (ur, r) => r.Name)
                     .ToListAsync();
                 isProfessionalOrHigher = roles.Contains("Professional") || roles.Contains("Enterprise");
@@ -123,7 +123,7 @@ namespace ShortUrl.Pages
 
             var clickStat = new ClickStat
             {
-                ShortUrlId = shortUrl.Id,
+                UrlShortId = urlShort.Id,
                 DestinationUrlId = destinationUrl.Id,
                 OgMetadataId = null,
                 ClickedAt = DateTime.UtcNow,
@@ -155,12 +155,12 @@ namespace ShortUrl.Pages
             return Redirect(uriBuilder.ToString());
         }
 
-        private DestinationUrl SelectWeightedDestinationUrl(UrlShort shortUrl)
+        private DestinationUrl SelectWeightedDestinationUrl(UrlShort urlShort)
         {
-            var totalWeight = shortUrl.DestinationUrls.Sum(d => d.Weight ?? 1);
+            var totalWeight = urlShort.DestinationUrls.Sum(d => d.Weight ?? 1);
             var random = new Random().NextDouble() * totalWeight;
             double currentWeight = 0;
-            foreach (var url in shortUrl.DestinationUrls)
+            foreach (var url in urlShort.DestinationUrls)
             {
                 currentWeight += url.Weight ?? 1;
                 if (random <= currentWeight)
@@ -168,7 +168,7 @@ namespace ShortUrl.Pages
                     return url;
                 }
             }
-            return shortUrl.DestinationUrls[shortUrl.CurrentDestinationIndex];
+            return urlShort.DestinationUrls[urlShort.CurrentDestinationIndex];
         }
     }
 }

@@ -36,7 +36,7 @@ namespace ShortUrl.Services
                 {
                     throw new ArgumentException("Custom slug can only contain alphanumeric characters, hyphens, and underscores.");
                 }
-                if (await _dbContext.ShortUrls.AnyAsync(s => s.Code.ToLower() == customSlug.ToLower()))
+                if (await _dbContext.UrlShorts.AnyAsync(s => s.Code.ToLower() == customSlug.ToLower()))
                 {
                     throw new ArgumentException("Custom slug is already in use. Please choose a different slug.");
                 }
@@ -47,10 +47,10 @@ namespace ShortUrl.Services
                 do
                 {
                     code = GenerateCode(6);
-                } while (await _dbContext.ShortUrls.AnyAsync(s => s.Code == code));
+                } while (await _dbContext.UrlShorts.AnyAsync(s => s.Code == code));
             }
 
-            var shortUrl = new UrlShort
+            var urlShort = new UrlShort
             {
                 Code = code,
                 UserId = userId,
@@ -63,7 +63,7 @@ namespace ShortUrl.Services
                 CurrentOgMetadataIndex = 0
             };
 
-            _dbContext.ShortUrls.Add(shortUrl);
+            _dbContext.UrlShorts.Add(urlShort);
             await _dbContext.SaveChangesAsync();
 
             return code;
@@ -71,11 +71,11 @@ namespace ShortUrl.Services
 
         public async Task DeleteShortUrlAsync(string code)
         {
-            var shortUrl = await _dbContext.ShortUrls
+            var urlShort = await _dbContext.UrlShorts
                 .FirstOrDefaultAsync(s => s.Code == code && !s.IsDeleted);
-            if (shortUrl != null)
+            if (urlShort != null)
             {
-                shortUrl.IsDeleted = true;
+                urlShort.IsDeleted = true;
                 await _dbContext.SaveChangesAsync();
             }
         }

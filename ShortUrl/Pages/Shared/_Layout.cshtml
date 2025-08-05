@@ -1,5 +1,4 @@
-﻿@* File: ShortUrl/Pages/Shared/_Layout.cshtml *@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
      <meta name="description" content="Professional URL shortening service with advanced analytics and custom branding options.">
@@ -152,7 +151,7 @@
                         
                         @if (User.IsInRole("Basic") || User.IsInRole("Professional") || User.IsInRole("Enterprise"))
                         {
-                            <a class="nav-link" asp-page="/Stats">
+                            <a class="nav-link" href="/Stats">
                                 <i class="fas fa-chart-line me-1"></i>Stats
                             </a>
                         }
@@ -193,10 +192,13 @@
                                 }
                             </a>
                             <ul class="dropdown-menu dropdown-menu-end">
+                                <li class="nav-item">
+                                    <a class="nav-link text-dark" asp-area="" asp-page="/VCardManager">vCard Manager</a>
+                                </li>
                                 <li><a class="dropdown-item" href="/profile"><i class="fas fa-user me-2"></i>Profile</a></li>
                                 <li><hr class="dropdown-divider"></li>
                                 <li>
-                                    <form method="post" action="/Account/Logout"  class="d-inline">
+                                    <form method="post" action="/Account/Logout" class="d-inline">
                                         <button type="submit" class="nav-link btn btn-link border-0">
                                             <i class="fas fa-sign-out-alt me-1"></i>Logout
                                         </button>

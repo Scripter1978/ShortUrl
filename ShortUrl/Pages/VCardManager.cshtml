@@ -1,0 +1,135 @@
+@page
+@model VCardManagerModel
+@using Microsoft.AspNetCore.Identity
+@inject SignInManager<IdentityUser> SignInManager
+@inject UserManager<IdentityUser> UserManager
+
+@{
+    ViewData["Title"] = "vCard Manager";
+}
+
+@if (SignInManager.IsSignedIn(User))
+{
+    <div class="container">
+        <h1>vCard Manager</h1>
+        <div class="row">
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-body">
+                        <h4>@(Model.VCard.Id == 0 ? "Create New vCard" : "Edit vCard")</h4>
+                        <form method="post">
+                            <input type="hidden" asp-for="VCard.Id" />
+                            
+                            <div asp-validation-summary="All" class="text-danger"></div>
+                            
+                            <div class="form-group mb-2">
+                                <label asp-for="VCard.FirstName">First Name</label>
+                                <input asp-for="VCard.FirstName" class="form-control" />
+                                <span asp-validation-for="VCard.FirstName" class="text-danger"></span>
+                            </div>
+                            
+                            <div class="form-group mb-2">
+                                <label asp-for="VCard.LastName">Last Name</label>
+                                <input asp-for="VCard.LastName" class="form-control" />
+                                <span asp-validation-for="VCard.LastName" class="text-danger"></span>
+                            </div>
+                            
+                            <div class="form-group mb-2">
+                                <label asp-for="VCard.Organization">Organization</label>
+                                <input asp-for="VCard.Organization" class="form-control" />
+                                <span asp-validation-for="VCard.Organization" class="text-danger"></span>
+                            </div>
+                            
+                            <div class="form-group mb-2">
+                                <label asp-for="VCard.JobTitle">Job Title</label>
+                                <input asp-for="VCard.JobTitle" class="form-control" />
+                                <span asp-validation-for="VCard.JobTitle" class="text-danger"></span>
+                            </div>
+                            
+                            <div class="form-group mb-2">
+                                <label asp-for="VCard.Email">Email</label>
+                                <input type="email" asp-for="VCard.Email" class="form-control" />
+                                <span asp-validation-for="VCard.Email" class="text-danger"></span>
+                            </div>
+                            
+                            <div class="form-group mb-2">
+                                <label asp-for="VCard.Phone">Phone</label>
+                                <input asp-for="VCard.Phone" class="form-control" />
+                                <span asp-validation-for="VCard.Phone" class="text-danger"></span>
+                            </div>
+                            
+                            <div class="form-group mb-2">
+                                <label asp-for="VCard.Website">Website</label>
+                                <input type="url" asp-for="VCard.Website" class="form-control" />
+                                <span asp-validation-for="VCard.Website" class="text-danger"></span>
+                            </div>
+                            
+                            <div class="form-group mb-2">
+                                <label asp-for="VCard.Address">Address</label>
+                                <textarea asp-for="VCard.Address" class="form-control" rows="2"></textarea>
+                                <span asp-validation-for="VCard.Address" class="text-danger"></span>
+                            </div>
+                            
+                            <div class="form-group mb-2">
+                                <label asp-for="VCard.Note">Note</label>
+                                <textarea asp-for="VCard.Note" class="form-control" rows="3"></textarea>
+                                <span asp-validation-for="VCard.Note" class="text-danger"></span>
+                            </div>
+                            
+                            <div class="form-group mt-3">
+                                <button type="submit" class="btn btn-primary">@(Model.VCard.Id == 0 ? "Create" : "Update")</button>
+                                @if (Model.VCard.Id != 0)
+                                {
+                                    <a asp-page="/VCardManager" class="btn btn-secondary">Cancel</a>
+                                }
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-body">
+                        <h4>Your vCards</h4>
+                        @if (Model.UserVCards.Any())
+                        {
+                            <div class="list-group">
+                                @foreach (var card in Model.UserVCards)
+                                {
+                                    <div class="list-group-item d-flex justify-content-between align-items-center">
+                                        <div>
+                                            <h5 class="mb-1">@card.FirstName @card.LastName</h5>
+                                            <small>@card.Organization - @card.JobTitle</small>
+                                        </div>
+                                        <div>
+                                            <a asp-page="/VCardManager" asp-route-id="@card.Id" class="btn btn-sm btn-primary">Edit</a>
+                                            <a href="/vcard-qr/@card.Id" target="_blank" class="btn btn-sm btn-secondary">QR Code</a>
+                                            <a href="/vcard-qr-print/@card.Id" target="_blank" class="btn btn-sm btn-info">Print QR</a>
+                                            <form method="post" asp-page-handler="Delete" asp-route-id="@card.Id" style="display:inline;">
+                                                <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('Are you sure you want to delete this vCard?');">Delete</button>
+                                            </form>
+                                        </div>
+                                    </div>
+                                }
+                            </div>
+                        }
+                        else
+                        {
+                            <p>You haven't created any vCards yet.</p>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+else
+{
+    <h1>Welcome to vCard Manager</h1>
+    <p>Please <a asp-page="/Account/Login">log in</a> or <a asp-page="/Account/Register">register</a> to manage vCards.</p>
+}
+
+@section Scripts {
+    @await Html.PartialAsync("_ValidationScriptsPartial")
+}

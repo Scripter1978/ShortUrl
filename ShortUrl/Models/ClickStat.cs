@@ -3,7 +3,7 @@ namespace ShortUrl.Models;
 public class ClickStat
 {
     public int Id { get; set; }
-    public int ShortUrlId { get; set; }
+    public int UrlShortId { get; set; }
     public int? DestinationUrlId { get; set; }
     public int? OgMetadataId { get; set; }
     public DateTime ClickedAt { get; set; }

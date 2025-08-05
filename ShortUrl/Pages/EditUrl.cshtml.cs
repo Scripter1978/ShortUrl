@@ -48,12 +48,12 @@ namespace ShortUrl.Pages
         public async Task<IActionResult> OnGetAsync(int id)
         {
             var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-            var shortUrl = await _dbContext.ShortUrls
+            var urlShort = await _dbContext.UrlShorts
                 .Include(s => s.DestinationUrls)
                 .Include(s => s.OgMetadataVariations)
                 .FirstOrDefaultAsync(s => s.Id == id && s.UserId == userId && !s.IsDeleted);
 
-            if (shortUrl == null)
+            if (urlShort == null)
             {
                 TempData["ErrorMessage"] = "URL not found or you don't have permission to edit it.";
                 return RedirectToPage("/Index");
@@ -61,11 +61,11 @@ namespace ShortUrl.Pages
 
             Input = new InputModel
             {
-                Id = shortUrl.Id,
-                Code = shortUrl.Code,
-                DestinationUrls = shortUrl.DestinationUrls,
-                OgMetadataVariations = shortUrl.OgMetadataVariations,
-                ExpirationDate = shortUrl.ExpirationDate,
+                Id = urlShort.Id,
+                Code = urlShort.Code,
+                DestinationUrls = urlShort.DestinationUrls,
+                OgMetadataVariations = urlShort.OgMetadataVariations,
+                ExpirationDate = urlShort.ExpirationDate,
                 Password = null // Don't expose password
             };
 
@@ -89,19 +89,19 @@ namespace ShortUrl.Pages
             var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
             var isEnterprise = await _userManager.IsInRoleAsync(await _userManager.FindByIdAsync(userId), "Enterprise");
 
-            var shortUrl = await _dbContext.ShortUrls
+            var urlShort = await _dbContext.UrlShorts
                 .Include(s => s.DestinationUrls)
                 .Include(s => s.OgMetadataVariations)
                 .FirstOrDefaultAsync(s => s.Id == Input.Id && s.UserId == userId && !s.IsDeleted);
 
-            if (shortUrl == null)
+            if (urlShort == null)
             {
                 TempData["ErrorMessage"] = "URL not found or you don't have permission to edit it.";
                 return RedirectToPage("/Index");
             }
 
             // Validate custom slug
-            if (!string.IsNullOrWhiteSpace(Input.Code) && Input.Code != shortUrl.Code)
+            if (!string.IsNullOrWhiteSpace(Input.Code) && Input.Code != urlShort.Code)
             {
                 if (!Regex.IsMatch(Input.Code, @"^[a-zA-Z0-9\-_]+$"))
                 {
@@ -109,7 +109,7 @@ namespace ShortUrl.Pages
                     TempData["ErrorMessage"] = "Invalid slug format.";
                     return Page();
                 }
-                if (await _dbContext.ShortUrls.AnyAsync(s => s.Code.ToLower() == Input.Code.ToLower() && s.Id != Input.Id))
+                if (await _dbContext.UrlShorts.AnyAsync(s => s.Code.ToLower() == Input.Code.ToLower() && s.Id != Input.Id))
                 {
                     ModelState.AddModelError("Input.Code", "Custom slug is already in use. Please choose a different slug.");
                     TempData["ErrorMessage"] = "Slug is already in use.";
@@ -185,18 +185,18 @@ namespace ShortUrl.Pages
                 }
             }
 
-            // Update ShortUrl properties
-            var oldCode = shortUrl.Code;
-            shortUrl.Code = Input.Code ?? shortUrl.Code;
-            shortUrl.ExpirationDate = isEnterprise ? Input.ExpirationDate : shortUrl.ExpirationDate;
+            // Update UrlShort properties
+            var oldCode = urlShort.Code;
+            urlShort.Code = Input.Code ?? urlShort.Code;
+            urlShort.ExpirationDate = isEnterprise ? Input.ExpirationDate : urlShort.ExpirationDate;
             if (isEnterprise && Input.Password != null)
             {
-                shortUrl.Password = string.IsNullOrEmpty(Input.Password) ? null : BCrypt.Net.BCrypt.HashPassword(Input.Password);
+                urlShort.Password = string.IsNullOrEmpty(Input.Password) ? null : BCrypt.Net.BCrypt.HashPassword(Input.Password);
             }
 
             // Update DestinationUrls
-            _dbContext.DestinationUrls.RemoveRange(shortUrl.DestinationUrls);
-            shortUrl.DestinationUrls = Input.DestinationUrls.Select(d => new DestinationUrl
+            _dbContext.DestinationUrls.RemoveRange(urlShort.DestinationUrls);
+            urlShort.DestinationUrls = Input.DestinationUrls.Select(d => new DestinationUrl
             {
                 Url = d.Url,
                 UtmSource = d.UtmSource,
@@ -204,20 +204,20 @@ namespace ShortUrl.Pages
                 UtmCampaign = d.UtmCampaign,
                 Weight = d.Weight > 0 ? d.Weight : 1 // Default weight
             }).ToList();
-            shortUrl.CurrentDestinationIndex = 0;
+            urlShort.CurrentDestinationIndex = 0;
 
             // Update OgMetadataVariations
-            _dbContext.OgMetadataVariations.RemoveRange(shortUrl.OgMetadataVariations);
-            shortUrl.OgMetadataVariations = ogMetadataWithImages;
-            shortUrl.CurrentOgMetadataIndex = 0;
+            _dbContext.OgMetadataVariations.RemoveRange(urlShort.OgMetadataVariations);
+            urlShort.OgMetadataVariations = ogMetadataWithImages;
+            urlShort.CurrentOgMetadataIndex = 0;
 
             await _dbContext.SaveChangesAsync();
 
             // Log audit
             if (isEnterprise)
             {
-                await _auditService.LogAsync(userId, "Edit", "ShortUrl", shortUrl.Id,
-                    $"Updated slug from '{oldCode}' to '{shortUrl.Code}', {shortUrl.DestinationUrls.Count} URLs, {shortUrl.OgMetadataVariations.Count} OG variations.");
+                await _auditService.LogAsync(userId, "Edit", "ShortUrl", urlShort.Id,
+                    $"Updated slug from '{oldCode}' to '{urlShort.Code}', {urlShort.DestinationUrls.Count} URLs, {urlShort.OgMetadataVariations.Count} OG variations.");
             }
 
             TempData["SuccessMessage"] = "URL updated successfully.";

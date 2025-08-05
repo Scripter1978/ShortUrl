@@ -1,10 +1,8 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.AspNetCore.Identity;
-using Microsoft.Extensions.Logging;
 using ShortUrl.Services;
 using System.ComponentModel.DataAnnotations;
-using System.Threading.Tasks;
 
 namespace ShortUrl.Pages.Account
 {
@@ -90,7 +88,7 @@ namespace ShortUrl.Pages.Account
             {
                 _logger.LogError(ex, "Error processing login for email: {Email}", Input.Email);
                 ErrorMessage = "An error occurred during login. Please try again later.";
-                await _auditService.LogAsync(null, "Login error", "User", 0, ex.Message);
+                await _auditService.LogAsync(Input.Email, "Login error", "User", 0, ex.Message);
                 return Page();
             }
         }

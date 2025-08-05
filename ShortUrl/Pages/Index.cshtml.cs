@@ -37,22 +37,22 @@ namespace ShortUrl.Pages
         [BindProperty]
         public string? CustomSlug { get; set; }
         [BindProperty]
-        public List<DestinationUrl> DestinationUrls { get; set; } = new List<DestinationUrl>();
+        public List<DestinationUrl> DestinationUrls { get; set; } = [];
         [BindProperty]
-        public List<OgMetadata> OgMetadataVariations { get; set; } = new List<OgMetadata>();
+        public List<OgMetadata> OgMetadataVariations { get; set; } = [];
         [BindProperty]
         public DateTime? ExpirationDate { get; set; }
         [BindProperty]
         public string? Password { get; set; }
         public string? ShortenedUrl { get; set; }
-        public List<UrlShort> UserUrls { get; set; } = new List<UrlShort>();
+        public List<UrlShort> UserUrls { get; set; } = [];
         public string AppUrl => _configuration["AppUrl"];
-        public List<IFormFile> OgImageFiles { get; set; } = new List<IFormFile>();
+        public List<IFormFile> OgImageFiles { get; set; } = [];
 
         public async Task OnGetAsync()
         {
             var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-            UserUrls = await _dbContext.ShortUrls
+            UserUrls = await _dbContext.UrlShorts
                 .Include(u => u.DestinationUrls)
                 .Include(u => u.OgMetadataVariations)
                 .Include(u => u.ClickStats)
@@ -63,6 +63,12 @@ namespace ShortUrl.Pages
         public async Task<IActionResult> OnPostShortenAsync()
         {
             
+            // Remove any validation errors related to OgMetadataVariations
+            foreach (var key in ModelState.Keys.Where(k => k.StartsWith("OgMetadataVariations")).ToList())
+            {
+                ModelState.Remove(key);
+            }
+            
             if (!ModelState.IsValid || !DestinationUrls.Any() || DestinationUrls.Any(d => string.IsNullOrWhiteSpace(d.Url)))
             {
                 ModelState.AddModelError("", "At least one valid destination URL is required.");
@@ -72,7 +78,7 @@ namespace ShortUrl.Pages
 
             
             var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-            var currentCount = await _dbContext.ShortUrls.CountAsync(u => u.UserId == userId);
+            var currentCount = await _dbContext.UrlShorts.CountAsync(u => u.UserId == userId);
             var limit = UrlLimiter.GetShortUrlLimitForUser(User);
 
             if (limit.HasValue && currentCount >= limit.Value)
@@ -155,7 +161,7 @@ namespace ShortUrl.Pages
         public async Task<IActionResult> OnPostDeleteAsync(int id)
         {
             var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-            var shortUrl = await _dbContext.ShortUrls
+            var shortUrl = await _dbContext.UrlShorts
                 .FirstOrDefaultAsync(u => u.Id == id && u.UserId == userId && !u.IsDeleted);
             if (shortUrl == null)
             {

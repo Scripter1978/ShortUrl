@@ -1,5 +1,6 @@
-@page "/Stats/{id:int}/{pageNumber:int?}"
+@page "/Stats/{id:int?}/{pageNumber:int?}"
 @model StatsModel
+@using System.Text.Json
 @using Microsoft.AspNetCore.Identity
 @inject SignInManager<IdentityUser> SignInManager
 @inject UserManager<IdentityUser> UserManager
@@ -7,345 +8,310 @@
 @{
     ViewData["Title"] = "URL Statistics";
 }
+<div class="container">
+    <h1 class="text-center my-4">@ViewData["Title"]</h1>
 
-@if (!SignInManager.IsSignedIn(User) || !(await UserManager.IsInRoleAsync(await UserManager.GetUserAsync(User), "Professional") || await UserManager.IsInRoleAsync(await UserManager.GetUserAsync(User), "Enterprise")))
+    @if (!SignInManager.IsSignedIn(User) || !(await UserManager.IsInRoleAsync(await UserManager.GetUserAsync(User), "Basic") || await UserManager.IsInRoleAsync(await UserManager.GetUserAsync(User), "Professional") || await UserManager.IsInRoleAsync(await UserManager.GetUserAsync(User), "Enterprise")))
+    {
+        <h1>Access Denied</h1>
+        <p>Only Basic, Professional, or Enterprise users can view URL statistics. Please <a asp-page="/Account/Login">log in</a> with an appropriate account.</p>
+        <p class="text-center"><a asp-page="/Account/Upgrade" class="btn btn-link">Upgrade Now</a></p>
+    }
+    else
+    {
+        @if (Model.ErrorMessage != null)
+        {
+            <div class="alert alert-danger" role="alert">
+                @Model.ErrorMessage
+            </div>
+        }
+        @if (Model.UrlShort == null)
 {
-    <h1>Access Denied</h1>
-    <p>Only Professional or Enterprise users can view URL statistics. Please <a asp-page="/Account/Login">log in</a> with an appropriate account.</p>
-}
-else if (Model.ShortUrl == null)
-{
-    <h1>URL Not Found</h1>
-    <p>The requested URL does not exist or you don't have permission to view its statistics.</p>
-    <a asp-page="/Index" class="btn btn-secondary">Back to URLs</a>
+    <div class="card mb-4">
+        <div class="card-body">
+            <h3 class="card-title">URL Statistics Overview</h3>
+            
+            <form method="get" class="mb-4">
+                <div class="row g-2 align-items-end">
+                    <div class="col-auto">
+                        <label for="startDate" class="form-label">Start Date</label>
+                        <input type="date" id="startDate" name="startDate" class="form-control" value="@Request.Query["startDate"]" />
+                    </div>
+                    <div class="col-auto">
+                        <label for="endDate" class="form-label">End Date</label>
+                        <input type="date" id="endDate" name="endDate" class="form-control" value="@Request.Query["endDate"]" />
+                    </div>
+                    <div class="col-auto">
+                        <button type="submit" class="btn btn-primary">Filter</button>
+                    </div>
+                </div>
+            </form>
+            
+            <div class="mb-4">
+                <h4>Total Clicks: @Model.TotalClicks</h4>
+                @if (Model.Dates.Any())
+                {
+                    <canvas id="clicksChart" width="400" height="200"></canvas>
+                }
+                else
+                {
+                    <p>No click data available for the selected period.</p>
+                }
+            </div>
+            
+            <h4>Your URLs</h4>
+            @if (Model.UserUrls.Any())
+            {
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Short URL</th>
+                            <th>Created At</th>
+                            <th>Clicks</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var url in Model.UserUrls)
+                        {
+                            <tr>
+                                <td><a href="@($"{Request.Scheme}://{Request.Host}/{url.Code}")" target="_blank">@url.Code</a></td>
+                                <td>@url.CreatedAt.ToString("g")</td>
+                                <td>@url.ClickStats.Count</td>
+                                <td>
+                                    <a asp-page="/Stats" asp-route-id="@url.Id" class="btn btn-primary btn-sm">View Details</a>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+            else
+            {
+                <p>No URLs found.</p>
+            }
+        </div>
+    </div>
 }
 else
 {
-    <h1>Statistics for <a href="@($"{Request.Scheme}://{Request.Host}/{Model.ShortUrl.Code}")">@Model.ShortUrl.Code</a></h1>
-    @if (TempData["ErrorMessage"] != null)
-    {
-        <div class="alert alert-danger">@TempData["ErrorMessage"]</div>
-    }
-    <div class="row">
-        <div class="col-md-6">
-            <h3>Summary</h3>
-            <p><strong>Total Clicks:</strong> @Model.TotalClicks</p>
-            <p><strong>Unique IPs:</strong> @Model.UniqueIps</p>
-            <p><strong>Created:</strong> @Model.ShortUrl.CreatedAt.ToString("g")</p>
-            @if (Model.ShortUrl.ExpirationDate.HasValue)
-            {
-                <p><strong>Expires:</strong> @Model.ShortUrl.ExpirationDate.Value.ToString("g")</p>
-            }
-            @if (!string.IsNullOrEmpty(Model.ShortUrl.Password))
-            {
-                <p><strong>Password Protected:</strong> Yes</p>
-            }
-        </div>
-        <div class="col-md-6">
-            <h3>Actions</h3>
-            <a asp-page="/EditUrl" asp-route-id="@Model.ShortUrl.Id" class="btn btn-primary">Edit URL</a>
-            <a asp-page="/Index" class="btn btn-secondary">Back to URLs</a>
-            <button onclick="downloadCSV()" class="btn btn-info">Export to CSV</button>
-        </div>
-    </div>
-    <h3>A/B Testing Results</h3>
-    <div class="row">
-        <div class="col-md-6">
-            <h4>Destination URLs</h4>
-            <table class="table">
-                <thead>
-                    <tr>
-                        <th>URL</th>
-                        <th>Clicks</th>
-                        <th>Weight</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @foreach (var url in Model.DestinationUrlStats)
+            <div class="card mb-4">
+                <div class="card-body">
+                    <h3 class="card-title">URL Details</h3>
+                    <p><strong>Shortened URL:</strong> <a href="@Model.ShortenedUrl" target="_blank">@Model.ShortenedUrl</a></p>
+                    <p><strong>Short Code:</strong> @Model.UrlShort.Code</p>
+                    <p><strong>Created By:</strong> @Model.UrlShort.User?.UserName</p>
+                    <p><strong>Created On:</strong> @Model.UrlShort.CreatedAt.ToString("g")</p>
+                </div>
+            </div>
+
+            <div class="card mb-4">
+                <div class="card-body">
+                    <h3 class="card-title">Click Statistics Over Time</h3>
+                    @if (Model.Clicks.Any())
                     {
-                        <tr>
-                            <td>@url.Url</td>
-                            <td>@url.Clicks</td>
-                            <td>@(url.Weight ?? 1)</td>
-                        </tr>
+                        <canvas id="clicksChart" width="400" height="200"></canvas>
+                        <button onclick="downloadCSV()" class="btn btn-info mt-3">Export to CSV</button>
+                        <form method="get" class="mb-4">
+                            <input type="hidden" name="id" value="@Model.UrlShort?.Id" />
+                            <div class="row g-2 align-items-end">
+                                <div class="col-auto">
+                                    <label for="startDate" class="form-label">Start Date</label>
+                                    <input type="date" id="startDate" name="startDate" class="form-control" value="@Request.Query["startDate"]" />
+                                </div>
+                                <div class="col-auto">
+                                    <label for="endDate" class="form-label">End Date</label>
+                                    <input type="date" id="endDate" name="endDate" class="form-control" value="@Request.Query["endDate"]" />
+                                </div>
+                                <div class="col-auto">
+                                    <button type="submit" class="btn btn-primary">Filter</button>
+                                </div>
+                            </div>
+                        </form>
                     }
-                </tbody>
-            </table>
-            @if (Model.DestinationUrlStats.Any())
-            {
-                <h4>Click Distribution</h4>
-                <canvas id="destinationUrlChart"></canvas>
-            }
-        </div>
-        <div class="col-md-6">
-            <h4>Social Media Metadata Variations</h4>
-            <table class="table">
-                <thead>
-                    <tr>
-                        <th>Title</th>
-                        <th>Clicks</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @foreach (var og in Model.OgMetadataStats)
+                    else
                     {
-                        <tr>
-                            <td>@og.Title</td>
-                            <td>@og.Clicks</td>
-                        </tr>
+                        <p>No click statistics available for this URL.</p>
                     }
-                </tbody>
-            </table>
-            @if (Model.OgMetadataStats.Any())
+                </div>
+            </div>
+
+            @if (Model.UrlShort.DestinationUrls.Any())
             {
-                <h4>Metadata Click Distribution</h4>
-                <canvas id="ogMetadataChart"></canvas>
+                <div class="card mb-4">
+                    <div class="card-body">
+                        <h3 class="card-title">Destination URLs</h3>
+                        <table class="table table-bordered">
+                            <thead>
+                                <tr>
+                                    <th>URL</th>
+                                    <th>Weight</th>
+                                    <th>UTM Parameters</th>
+                                    <th>Clicks</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var url in Model.UrlShort.DestinationUrls)
+                                {
+                                    <tr>
+                                        <td><a href="@url.Url" target="_blank">@url.Url</a></td>
+                                        <td>@(url.Weight ?? 1)</td>
+                                        <td>
+                                            @if (!string.IsNullOrEmpty(url.UtmSource))
+                                            {
+                                                <span>UTM: @url.UtmSource, @url.UtmMedium, @url.UtmCampaign</span>
+                                            }
+                                            else
+                                            {
+                                                <span>None</span>
+                                            }
+                                        </td>
+                                        <td><span class="destination-clicks-@url.Id">@Model.ClickCountsByDestination.GetValueOrDefault(url.Id, 0)</span></td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
             }
+        } 
+
+        <div class="text-center mt-4">
+            <a href="/Index" class="btn btn-link">Back to URLs</a>
         </div>
-    </div>
-    <h3>Click Trends</h3>
-    @if (Model.ClickTrends.Any())
-    {
-        <canvas id="clickTrendChart"></canvas>
     }
-    <h3>Click Details</h3>
-    <table class="table">
-        <thead>
-            <tr>
-                <th>Time</th>
-                <th>IP Address</th>
-                <th>Country</th>
-                <th>City</th>
-                @if (Model.IsProfessionalOrHigher)
-                {
-                    <th>Referrer</th>
-                    <th>Device</th>
-                    <th>Browser</th>
-                    <th>OS</th>
-                    <th>Language</th>
-                    <th>Screen Resolution</th>
-                }
-            </tr>
-        </thead>
-        <tbody>
-            @foreach (var click in Model.ClickStats)
-            {
-                <tr>
-                    <td>@click.ClickedAt.ToString("g")</td>
-                    <td>@click.IpAddress</td>
-                    <td>@click.Country</td>
-                    <td>@click.City</td>
-                    @if (Model.IsProfessionalOrHigher)
-                    {
-                        <td>@click.Referrer</td>
-                        <td>@click.Device</td>
-                        <td>@click.Browser</td>
-                        <td>@click.OperatingSystem</td>
-                        <td>@click.Language</td>
-                        <td>@click.ScreenResolution</td>
-                    }
-                </tr>
-            }
-        </tbody>
-    </table>
-    @if (Model.TotalClicks > Model.PageSize)
-    {
-        <nav aria-label="Click stats pagination">
-            <ul class="pagination">
-                @if (Model.CurrentPage > 1)
-                {
-                    <li class="page-item">
-                        <a class="page-link" asp-page="/Stats" asp-route-id="@Model.ShortUrl.Id" asp-route-pageNumber="@(Model.CurrentPage - 1)">Previous</a>
-                    </li>
-                }
-                @for (int i = 1; i <= Model.TotalPages; i++)
-                {
-                    <li class="page-item @(i == Model.CurrentPage ? "active" : "")">
-                        <a class="page-link" asp-page="/Stats" asp-route-id="@Model.ShortUrl.Id" asp-route-pageNumber="@i">@i</a>
-                    </li>
-                }
-                @if (Model.CurrentPage < Model.TotalPages)
-                {
-                    <li class="page-item">
-                        <a class="page-link" asp-page="/Stats" asp-route-id="@Model.ShortUrl.Id" asp-route-pageNumber="@(Model.CurrentPage + 1)">Next</a>
-                    </li>
-                }
-            </ul>
-        </nav>
-    }
-    @if (await UserManager.IsInRoleAsync(await UserManager.GetUserAsync(User), "Enterprise"))
-    {
-        <h3>Audit Logs</h3>
-        <table class="table">
-            <thead>
-                <tr>
-                    <th>Action</th>
-                    <th>Details</th>
-                    <th>Timestamp</th>
-                </tr>
-            </thead>
-            <tbody>
-                @foreach (var log in Model.AuditLogs)
-                {
-                    <tr>
-                        <td>@log.Action</td>
-                        <td>@log.Details</td>
-                        <td>@log.Timestamp.ToString("g")</td>
-                    </tr>
-                }
-            </tbody>
-        </table>
-    }
-}
+</div>
 
 @section Scripts {
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    @if (Model.DestinationUrlStats.Any())
-    {
-        <chartjs>
-            {
-                "type": "pie",
-                "data": {
-                    "labels": [@string.Join(",", Model.DestinationUrlStats.Select(u => $"\"{u.Url}\"").ToArray())],
-                    "datasets": [{
-                        "label": "Clicks by Destination URL",
-                        "data": [@string.Join(",", Model.DestinationUrlStats.Select(u => u.Clicks))],
-                        "backgroundColor": ["#FF6384", "#36A2EB", "#FFCE56", "#4BC0C0", "#9966FF"]
-                    }]
-                },
-                "options": {
-                    "responsive": true,
-                    "plugins": {
-                        "legend": {
-                            "position": "top"
+    @await Html.PartialAsync("_ValidationScriptsPartial")
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@@microsoft/signalr@latest/dist/browser/signalr.min.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const canvas = document.getElementById('clicksChart');
+            if (canvas) {
+                const ctx = canvas.getContext('2d');
+                
+                try {
+                    new Chart(ctx, {
+                        type: 'line',
+                        data: {
+                            labels: @Html.Raw(JsonSerializer.Serialize(Model.Dates)),
+                            datasets: [{
+                                label: 'Clicks',
+                                data: @Html.Raw(JsonSerializer.Serialize(Model.Clicks)),
+                                fill: true,
+                                borderColor: 'rgb(75, 192, 192)',
+                                backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                                tension: 0.4
+                            }]
                         },
-                        "title": {
-                            "display": true,
-                            "text": "Click Distribution by Destination URL"
-                        }
-                    }
-                }
-            }
-        </chartjs>
-    }
-    @if (Model.OgMetadataStats.Any())
-    {
-        <chartjs>
-            {
-                "type": "pie",
-                "data": {
-                    "labels": [@string.Join(",", Model.OgMetadataStats.Select(o => $"\"{o.Title}\"").ToArray())],
-                    "datasets": [{
-                        "label": "Clicks by Metadata Variation",
-                        "data": [@string.Join(",", Model.OgMetadataStats.Select(o => o.Clicks))],
-                        "backgroundColor": ["#FF6384", "#36A2EB", "#FFCE56", "#4BC0C0", "#9966FF"]
-                    }]
-                },
-                "options": {
-                    "responsive": true,
-                    "plugins": {
-                        "legend": {
-                            "position": "top"
-                        },
-                        "title": {
-                            "display": true,
-                            "text": "Click Distribution by Metadata Variation"
-                        }
-                    }
-                }
-            }
-        </chartjs>
-    }
-    @if (Model.ClickTrends.Any())
-    {
-        <chartjs>
-            {
-                "type": "line",
-                "data": {
-                    "labels": [@string.Join(",", Model.ClickTrends.Select(t => $"\"{t.Date:yyyy-MM-dd}\"").ToArray())],
-                    "datasets": [{
-                        "label": "Clicks Over Time",
-                        "data": [@string.Join(",", Model.ClickTrends.Select(t => t.Clicks))],
-                        "borderColor": "#36A2EB",
-                        "fill": false
-                    }]
-                },
-                "options": {
-                    "responsive": true,
-                    "plugins": {
-                        "title": {
-                            "display": true,
-                            "text": "Clicks Over Time"
-                        }
-                    },
-                    "scales": {
-                        "x": {
-                            "title": {
-                                "display": true,
-                                "text": "Date"
-                            }
-                        },
-                        "y": {
-                            "title": {
-                                "display": true,
-                                "text": "Clicks"
+                        options: {
+                            responsive: true,
+                            plugins: {
+                                legend: { display: true },
+                                title: {
+                                    display: true,
+                                    text: 'Click Statistics Over Time'
+                                }
+                            },
+                            scales: {
+                                x: { display: true, title: { display: true, text: 'Date' } },
+                                y: { display: true, title: { display: true, text: 'Clicks' }, beginAtZero: true }
                             }
                         }
-                    }
+                    });
+                } catch (err) {
+                    console.error("Error creating chart:", err);
                 }
             }
-        </chartjs>
-    }
-    
-    @{
-        // Define CSV headers
-        var headers = new List<string> { "Time", "IP Address", "Country", "City" };
-        if (Model.IsProfessionalOrHigher)
+        });
+        
+        @if (Model.UrlShort != null)
         {
-            headers.AddRange(new[] { "Referrer", "Device", "Browser", "OS", "Language", "Screen Resolution" });
+            <text>
+            // SignalR connection - only initialize when viewing a specific URL
+            const connection = new signalR.HubConnectionBuilder()
+                .withUrl("/clickHub")
+                .build();
+
+            connection.on("ReceiveClickUpdate", (id, totalClicks, destinationClicks, ogClicks) => {
+                if (id === @Model.UrlShort.Id) {
+                    Object.keys(destinationClicks).forEach(id => {
+                        const elem = document.querySelector(`.destination-clicks-${id}`);
+                        if (elem) elem.textContent = destinationClicks[id];
+                    });
+                }
+            });
+
+            connection.start().catch(err => console.error(err));
+            </text>
         }
-        var csvHeader = string.Join(",", headers);
-
-        // Generate CSV rows
-        var csvRows = Model.ClickStats.Select(stat => 
+        
+        @if (Model.UrlShort != null)
         {
-            var fields = new List<string>
-            {
-                $"\"{stat.ClickedAt.ToUniversalTime().ToString("o")}\"", // ISO 8601 format
-                $"\"{stat.IpAddress ?? ""}\"",
-                $"\"{stat.Country ?? ""}\"",
-                $"\"{stat.City ?? ""}\""
-            };
-
+            // Define CSV only for specific URL view
+            var headers = new List<string> { "Time", "IP Address", "Country", "City" };
             if (Model.IsProfessionalOrHigher)
             {
-                fields.AddRange(new[]
-                {
-                    $"\"{stat.Referrer ?? ""}\"",
-                    $"\"{stat.Device ?? ""}\"",
-                    $"\"{stat.Browser ?? ""}\"",
-                    $"\"{stat.OperatingSystem ?? ""}\"",
-                    $"\"{stat.Language ?? ""}\"",
-                    $"\"{stat.ScreenResolution ?? ""}\""
-                });
+                headers.AddRange(new[] { "Referrer", "Device", "Browser", "OS", "Language", "Screen Resolution" });
             }
+            var csvHeader = string.Join(",", headers);
 
-            return string.Join(",", fields);
-        });
+            var csvRows = Model.ClickStats.Select(stat =>
+            {
+                var fields = new List<string>
+                {
+                    $"\"{stat.ClickedAt.ToUniversalTime().ToString("o")}\"", 
+                    $"\"{stat.IpAddress ?? ""}\"",
+                    $"\"{stat.Country ?? ""}\"",
+                    $"\"{stat.City ?? ""}\""
+                };
 
-        // Combine headers and rows into CSV string
-        var csv = string.Join("\n", new[] { csvHeader }.Concat(csvRows));
-    }
-    <script>
-        const csv = `@Html.Raw(csv)`;
-        function downloadCSV() {
-            const blob = new Blob([csv], { type: 'text/csv' });
-            const url = window.URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = 'stats.csv';
-            a.click();
-            window.URL.revokeObjectURL(url);
+                if (Model.IsProfessionalOrHigher)
+                {
+                    fields.AddRange(new[]
+                    {
+                        $"\"{stat.Referrer ?? ""}\"",
+                        $"\"{stat.Device ?? ""}\"",
+                        $"\"{stat.Browser ?? ""}\"",
+                        $"\"{stat.OperatingSystem ?? ""}\"",
+                        $"\"{stat.Language ?? ""}\"",
+                        $"\"{stat.ScreenResolution ?? ""}\""
+                    });
+                }
+
+                return string.Join(",", fields);
+            });
+
+            var csv = string.Join("\n", new[] { csvHeader }.Concat(csvRows));
+            
+            <text>
+            const csv = `@Html.Raw(csv)`;
+            function downloadCSV() {
+                const blob = new Blob([csv], { type: 'text/csv' });
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'stats.csv';
+                a.click();
+                window.URL.revokeObjectURL(url);
+            }
+            </text>
+        }
+        else
+        {
+            <text>
+            function downloadCSV() {
+                alert('CSV download is only available when viewing a specific URL');
+            }
+            </text>
         }
     </script>
+    <style>
+        .qr-code {
+            max-width: 150px;
+            margin-top: 10px;
+        }
+    </style>
 }

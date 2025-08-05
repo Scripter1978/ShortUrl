@@ -196,7 +196,7 @@ namespace ShortUrl.Migrations
                 });
 
             migrationBuilder.CreateTable(
-                name: "ShortUrls",
+                name: "UrlShorts",
                 columns: table => new
                 {
                     Id = table.Column<int>(type: "integer", nullable: false)
@@ -212,9 +212,9 @@ namespace ShortUrl.Migrations
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_ShortUrls", x => x.Id);
+                    table.PrimaryKey("PK_UrlShorts", x => x.Id);
                     table.ForeignKey(
-                        name: "FK_ShortUrls_AspNetUsers_UserId",
+                        name: "FK_UrlShorts_AspNetUsers_UserId",
                         column: x => x.UserId,
                         principalTable: "AspNetUsers",
                         principalColumn: "Id",
@@ -227,7 +227,7 @@ namespace ShortUrl.Migrations
                 {
                     Id = table.Column<int>(type: "integer", nullable: false)
                         .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
-                    ShortUrlId = table.Column<int>(type: "integer", nullable: false),
+                    UrlShortId = table.Column<int>(type: "integer", nullable: false),
                     DestinationUrlId = table.Column<int>(type: "integer", nullable: true),
                     OgMetadataId = table.Column<int>(type: "integer", nullable: true),
                     ClickedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
@@ -239,17 +239,17 @@ namespace ShortUrl.Migrations
                     Browser = table.Column<string>(type: "text", nullable: true),
                     Language = table.Column<string>(type: "text", nullable: true),
                     OperatingSystem = table.Column<string>(type: "text", nullable: true),
-                    ScreenResolution = table.Column<string>(type: "text", nullable: true),
-                    UrlShortId = table.Column<int>(type: "integer", nullable: true)
+                    ScreenResolution = table.Column<string>(type: "text", nullable: true)
                 },
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_ClickStats", x => x.Id);
                     table.ForeignKey(
-                        name: "FK_ClickStats_ShortUrls_UrlShortId",
+                        name: "FK_ClickStats_UrlShorts_UrlShortId",
                         column: x => x.UrlShortId,
-                        principalTable: "ShortUrls",
-                        principalColumn: "Id");
+                        principalTable: "UrlShorts",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
                 });
 
             migrationBuilder.CreateTable(
@@ -258,22 +258,22 @@ namespace ShortUrl.Migrations
                 {
                     Id = table.Column<int>(type: "integer", nullable: false)
                         .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
-                    ShortUrlId = table.Column<int>(type: "integer", nullable: false),
+                    UrlShortId = table.Column<int>(type: "integer", nullable: false),
                     Url = table.Column<string>(type: "text", nullable: false),
                     UtmSource = table.Column<string>(type: "text", nullable: true),
                     UtmMedium = table.Column<string>(type: "text", nullable: true),
                     UtmCampaign = table.Column<string>(type: "text", nullable: true),
-                    Weight = table.Column<int>(type: "integer", nullable: true),
-                    UrlShortId = table.Column<int>(type: "integer", nullable: true)
+                    Weight = table.Column<int>(type: "integer", nullable: true)
                 },
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_DestinationUrls", x => x.Id);
                     table.ForeignKey(
-                        name: "FK_DestinationUrls_ShortUrls_UrlShortId",
+                        name: "FK_DestinationUrls_UrlShorts_UrlShortId",
                         column: x => x.UrlShortId,
-                        principalTable: "ShortUrls",
-                        principalColumn: "Id");
+                        principalTable: "UrlShorts",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
                 });
 
             migrationBuilder.CreateTable(
@@ -282,20 +282,20 @@ namespace ShortUrl.Migrations
                 {
                     Id = table.Column<int>(type: "integer", nullable: false)
                         .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
-                    ShortUrlId = table.Column<int>(type: "integer", nullable: false),
+                    UrlShortId = table.Column<int>(type: "integer", nullable: false),
                     Title = table.Column<string>(type: "text", nullable: false),
                     Description = table.Column<string>(type: "text", nullable: false),
-                    Image = table.Column<string>(type: "text", nullable: true),
-                    UrlShortId = table.Column<int>(type: "integer", nullable: true)
+                    Image = table.Column<string>(type: "text", nullable: true)
                 },
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_OgMetadataVariations", x => x.Id);
                     table.ForeignKey(
-                        name: "FK_OgMetadataVariations_ShortUrls_UrlShortId",
+                        name: "FK_OgMetadataVariations_UrlShorts_UrlShortId",
                         column: x => x.UrlShortId,
-                        principalTable: "ShortUrls",
-                        principalColumn: "Id");
+                        principalTable: "UrlShorts",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
                 });
 
             migrationBuilder.CreateIndex(
@@ -356,8 +356,8 @@ namespace ShortUrl.Migrations
                 column: "UrlShortId");
 
             migrationBuilder.CreateIndex(
-                name: "IX_ShortUrls_UserId",
-                table: "ShortUrls",
+                name: "IX_UrlShorts_UserId",
+                table: "UrlShorts",
                 column: "UserId");
         }
 
@@ -398,7 +398,7 @@ namespace ShortUrl.Migrations
                 name: "AspNetRoles");
 
             migrationBuilder.DropTable(
-                name: "ShortUrls");
+                name: "UrlShorts");
 
             migrationBuilder.DropTable(
                 name: "AspNetUsers");

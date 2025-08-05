@@ -24,6 +24,10 @@ builder.Services.AddIdentity<IdentityUser, IdentityRole>(options =>
     options.SignIn.RequireConfirmedAccount = false;
     options.Password.RequireDigit = true;
     options.Password.RequiredLength = 6;
+    options.Password.RequireLowercase = true;
+    options.Password.RequireNonAlphanumeric = false;
+    options.Password.RequireUppercase = true;
+    options.User.RequireUniqueEmail = true;
 })
 .AddEntityFrameworkStores<ApplicationDbContext>()
 .AddDefaultTokenProviders()
@@ -66,18 +70,18 @@ app.MapHub<ClickHub>("/clickHub"); // Map SignalR hub
 
 app.MapGet("/{code}", async (string code, ApplicationDbContext db, HttpContext httpContext, IHttpClientFactory httpClientFactory, IConfiguration configuration, IHttpContextAccessor httpContextAccessor, IMemoryCache cache, IHubContext<ClickHub> hubContext) =>
 {
-    var cacheKey = $"ShortUrl_{code}";
-    var shortUrl = await cache.GetOrCreateAsync(cacheKey, async entry =>
+    var cacheKey = $"UrlShort_{code}";
+    var urlShort = await cache.GetOrCreateAsync(cacheKey, async entry =>
     {
         entry.SlidingExpiration = TimeSpan.FromMinutes(5);
-        return await db.ShortUrls
+        return await db.UrlShorts
             .Include(s => s.DestinationUrls)
             .Include(s => s.OgMetadataVariations)
             .Include(s => s.User)
             .FirstOrDefaultAsync(s => s.Code == code);
     });
 
-    if (shortUrl == null || shortUrl.IsDeleted || shortUrl.ExpirationDate.HasValue && shortUrl.ExpirationDate.Value < DateTime.UtcNow)
+    if (urlShort == null || urlShort.IsDeleted || urlShort.ExpirationDate.HasValue && urlShort.ExpirationDate.Value < DateTime.UtcNow)
     {
         return Results.Redirect("/InvalidUrl");
     }
@@ -92,25 +96,25 @@ app.MapGet("/{code}", async (string code, ApplicationDbContext db, HttpContext h
     if (isSocialMediaCrawler)
     {
         var variationIndex = httpContext.Request.Query["var"].FirstOrDefault();
-        int varIndex = string.IsNullOrEmpty(variationIndex) || !int.TryParse(variationIndex, out varIndex) ? shortUrl.CurrentOgMetadataIndex : varIndex;
-        shortUrl.CurrentOgMetadataIndex = (shortUrl.OgMetadataVariations.Count > 0 ? (shortUrl.CurrentOgMetadataIndex + 1) % shortUrl.OgMetadataVariations.Count : 0);
+        int varIndex = string.IsNullOrEmpty(variationIndex) || !int.TryParse(variationIndex, out varIndex) ? urlShort.CurrentOgMetadataIndex : varIndex;
+        urlShort.CurrentOgMetadataIndex = (urlShort.OgMetadataVariations.Count > 0 ? (urlShort.CurrentOgMetadataIndex + 1) % urlShort.OgMetadataVariations.Count : 0);
         await db.SaveChangesAsync();
         return Results.Redirect($"/Preview/{code}?var={varIndex}");
     }
 
-    if (!string.IsNullOrEmpty(shortUrl.Password))
+    if (!string.IsNullOrEmpty(urlShort.Password))
     {
         return Results.Redirect($"/Password/{code}");
     }
 
-    if (shortUrl.DestinationUrls.Count == 0)
+    if (urlShort.DestinationUrls.Count == 0)
     {
         return Results.Redirect("/InvalidUrl");
     }
 
     // Weighted A/B testing
-    var destinationUrl = SelectWeightedDestinationUrl(shortUrl);
-    shortUrl.CurrentDestinationIndex = (shortUrl.CurrentDestinationIndex + 1) % shortUrl.DestinationUrls.Count;
+    var destinationUrl = SelectWeightedDestinationUrl(urlShort);
+    urlShort.CurrentDestinationIndex = (urlShort.CurrentDestinationIndex + 1) % urlShort.DestinationUrls.Count;
 
     string? country = null;
     string? city = null;
@@ -140,17 +144,15 @@ app.MapGet("/{code}", async (string code, ApplicationDbContext db, HttpContext h
     string? language = null;
     string? operatingSystem = null;
     var isProfessionalOrHigher = false;
-    if (shortUrl.User != null)
+    if (urlShort.User != null)
     {
         var roles = await db.UserRoles
-            .Where(ur => ur.UserId == shortUrl.UserId)
+            .Where(ur => ur.UserId == urlShort.UserId)
             .Join(db.Roles, ur => ur.RoleId, r => r.Id, (ur, r) => r.Name)
             .ToListAsync();
         isProfessionalOrHigher = roles.Contains("Professional") || roles.Contains("Enterprise");
     }
-
-    if (isProfessionalOrHigher)
-    {
+ 
         referrer = httpContext.Request.Headers.Referer.ToString();
         var uaParser = Parser.GetDefault();
         var ua = uaParser.Parse(httpContext.Request.Headers.UserAgent.ToString());
@@ -158,11 +160,11 @@ app.MapGet("/{code}", async (string code, ApplicationDbContext db, HttpContext h
         browser = $"{ua.Browser.Family} {ua.Browser.Major}.{ua.Browser.Minor}";
         operatingSystem = $"{ua.OS.Family} {ua.OS.Major}.{ua.OS.Minor}";
         language = httpContext.Request.Headers.AcceptLanguage.ToString().Split(',').FirstOrDefault()?.Split(';').FirstOrDefault();
-    }
+   
 
     var clickStat = new ClickStat
     {
-        ShortUrlId = shortUrl.Id,
+        UrlShortId = urlShort.Id,
         DestinationUrlId = destinationUrl.Id,
         OgMetadataId = null,
         ClickedAt = DateTime.UtcNow,
@@ -191,15 +193,15 @@ app.MapGet("/{code}", async (string code, ApplicationDbContext db, HttpContext h
     uriBuilder.Query = query.ToString();
 
     // Notify clients of a new click
-    var totalClicks = await db.ClickStats.CountAsync(c => c.ShortUrlId == shortUrl.Id);
+    var totalClicks = await db.ClickStats.CountAsync(c => c.UrlShortId == urlShort.Id);
     var destinationClicks = await db.ClickStats
-        .Where(c => c.ShortUrlId == shortUrl.Id)
+        .Where(c => c.UrlShortId == urlShort.Id)
         .GroupBy(c => c.DestinationUrlId)
         .ToDictionaryAsync(g => g.Key ?? 0, g => g.Count());
     var ogClicks = await db.ClickStats
-        .Where(c => c.ShortUrlId == shortUrl.Id)
+        .Where(c => c.UrlShortId == urlShort.Id && c.OgMetadataId != null)
         .GroupBy(c => c.OgMetadataId)
-        .ToDictionaryAsync(g => g.Key ?? 0, g => g.Count());
+        .ToDictionaryAsync(g => g.Key!.Value, g => g.Count());
     await hubContext.Clients.All.SendAsync("ReceiveClickUpdate", code, totalClicks, destinationClicks, ogClicks);
 
     await db.SaveChangesAsync();
@@ -218,7 +220,7 @@ app.MapGet("/api/check-slug/{slug}", async (string slug, ApplicationDbContext db
     {
         return Results.Json(new { isAvailable = false, message = "Invalid slug format." });
     }
-    var isAvailable = !await db.ShortUrls.AnyAsync(s => s.Code.ToLower() == slug.ToLower());
+    var isAvailable = !await db.UrlShorts.AnyAsync(s => s.Code.ToLower() == slug.ToLower());
     return Results.Json(new { isAvailable, message = isAvailable ? "Slug is available." : "Slug is already in use." });
 });
 
@@ -233,17 +235,110 @@ app.MapPost("/api/update-screen-resolution", async (ApplicationDbContext db, [Fr
 
 app.MapGet("/qr/{code}", async (string code, ApplicationDbContext db, IConfiguration configuration) =>
 {
-    var shortUrl = await db.ShortUrls.FirstOrDefaultAsync(s => s.Code == code);
-    if (shortUrl == null || shortUrl.IsDeleted)
+    var urlShort = await db.UrlShorts.FirstOrDefaultAsync(s => s.Code == code);
+    if (urlShort == null || urlShort.IsDeleted)
         return Results.NotFound();
 
-    var shortUrlFull = $"{configuration["AppUrl"]}/{code}";
+    var urlShortFull = $"{configuration["AppUrl"]}/{code}";
     var qrGenerator = new QRCodeGenerator();
-    var qrCodeData = qrGenerator.CreateQrCode(shortUrlFull, QRCodeGenerator.ECCLevel.Q);
+    var qrCodeData = qrGenerator.CreateQrCode(urlShortFull, QRCodeGenerator.ECCLevel.Q);
     var qrCode = new BitmapByteQRCode(qrCodeData);
     var qrCodeImage = qrCode.GetGraphic(20);
 
     return Results.File(qrCodeImage, "image/png", $"qr_{code}.png");
+});
+
+app.MapGet("/vcard-qr/{id:int}", async (int id, ApplicationDbContext db) =>
+{
+    var vcard = await db.VCards.FirstOrDefaultAsync(v => v.Id == id);
+    if (vcard == null)
+        return Results.NotFound();
+
+    // Generate vCard format text
+    var vcardText = $@"BEGIN:VCARD
+VERSION:3.0
+N:{vcard.LastName};{vcard.FirstName};;;
+FN:{vcard.FirstName} {vcard.LastName}
+ORG:{vcard.Organization}
+TITLE:{vcard.JobTitle}
+EMAIL:{vcard.Email}
+TEL:{vcard.Phone}
+URL:{vcard.Website}
+ADR:;;{vcard.Address};;;
+NOTE:{vcard.Note}
+END:VCARD";
+
+    byte[] qrCodeImage;
+    // Generate QR code
+    using(var qrGenerator = new QRCodeGenerator())
+    using(var qrCodeData = qrGenerator.CreateQrCode(vcardText, QRCodeGenerator.ECCLevel.Q))
+    using (var qrCode = new PngByteQRCode(qrCodeData))
+    {
+        qrCodeImage = qrCode.GetGraphic(20);
+    }
+    
+
+    return Results.File(qrCodeImage, "image/png", $"vcard_{vcard.FirstName}_{vcard.LastName}.png");
+});
+
+app.MapGet("/vcard-qr-print/{id:int}", async (int id, ApplicationDbContext db) =>
+{
+    var vcard = await db.VCards.FirstOrDefaultAsync(v => v.Id == id);
+    if (vcard == null)
+        return Results.NotFound();
+
+    // Generate vCard format text
+    var vcardText = $@"BEGIN:VCARD
+VERSION:3.0
+N:{vcard.LastName};{vcard.FirstName};;;
+FN:{vcard.FirstName} {vcard.LastName}
+ORG:{vcard.Organization}
+TITLE:{vcard.JobTitle}
+EMAIL:{vcard.Email}
+TEL:{vcard.Phone}
+URL:{vcard.Website}
+ADR:;;{vcard.Address};;;
+NOTE:{vcard.Note}
+END:VCARD";
+
+    // Generate QR code as a base64 string for embedding in HTML
+    string base64QrCode;
+    using(var qrGenerator = new QRCodeGenerator())
+    using(var qrCodeData = qrGenerator.CreateQrCode(vcardText, QRCodeGenerator.ECCLevel.Q))
+    using(var qrCode = new PngByteQRCode(qrCodeData))
+    {
+        var qrCodeImage = qrCode.GetGraphic(20);
+        base64QrCode = Convert.ToBase64String(qrCodeImage);
+    }
+
+    // Create a simple HTML page with just the QR code and auto-print JavaScript
+    var html = $@"<!DOCTYPE html>
+<html>
+<head>
+    <title>VCard QR Code - {vcard.FirstName} {vcard.LastName}</title>
+    <style>
+        body {{ margin: 0; display: flex; justify-content: center; align-items: center; height: 100vh; }}
+        .container {{ text-align: center; max-height: 20%; max-width: 20%; display: flex; flex-direction: column; justify-content: center; align-items: center; padding-top: 200px; }}
+        img {{ max-width: 100%; height: auto; }}
+        @media print {{
+            .no-print {{ display: none; }}
+        }}
+    </style>
+</head>
+<body>
+    <div class='container'>
+        <img src='data:image/png;base64,{base64QrCode}' alt='VCard QR Code'>
+        <h3>{vcard.FirstName} {vcard.LastName}</h3>
+        <p class='no-print'><button onclick='window.print()'>Print QR Code</button></p>
+    </div>
+    <script>
+        // Optional: Automatically open print dialog when page loads
+        // window.onload = function() {{ window.print(); }};
+    </script>
+</body>
+</html>";
+
+    return Results.Content(html, "text/html");
 });
 
 app.MapPost("/webhook/stripe", async (
@@ -344,12 +439,12 @@ using (var scope = app.Services.CreateScope())
 app.Run();
 return;
 
-DestinationUrl SelectWeightedDestinationUrl(UrlShort shortUrl)
+DestinationUrl SelectWeightedDestinationUrl(UrlShort urlShort)
 {
-    var totalWeight = shortUrl.DestinationUrls.Sum(d => d.Weight ?? 1);
+    var totalWeight = urlShort.DestinationUrls.Sum(d => d.Weight ?? 1);
     var random = new Random().NextDouble() * totalWeight;
     double currentWeight = 0;
-    foreach (var url in shortUrl.DestinationUrls)
+    foreach (var url in urlShort.DestinationUrls)
     {
         currentWeight += url.Weight ?? 1;
         if (random <= currentWeight)
@@ -357,7 +452,7 @@ DestinationUrl SelectWeightedDestinationUrl(UrlShort shortUrl)
             return url;
         }
     }
-    return shortUrl.DestinationUrls[shortUrl.CurrentDestinationIndex];
+    return urlShort.DestinationUrls[urlShort.CurrentDestinationIndex];
 }
 
 internal class GeoLocationResponse

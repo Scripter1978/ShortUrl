@@ -12,8 +12,8 @@ using ShortUrl.Data;
 namespace ShortUrl.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    [Migration("20250725192534_InitialCreate")]
-    partial class InitialCreate
+    [Migration("20250805000604_AddVCardSupport")]
+    partial class AddVCardSupport
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -302,10 +302,7 @@ namespace ShortUrl.Migrations
                     b.Property<string>("ScreenResolution")
                         .HasColumnType("text");
 
-                    b.Property<int>("ShortUrlId")
-                        .HasColumnType("integer");
-
-                    b.Property<int?>("UrlShortId")
+                    b.Property<int>("UrlShortId")
                         .HasColumnType("integer");
 
                     b.HasKey("Id");
@@ -323,14 +320,11 @@ namespace ShortUrl.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
-                    b.Property<int>("ShortUrlId")
-                        .HasColumnType("integer");
-
                     b.Property<string>("Url")
                         .IsRequired()
                         .HasColumnType("text");
 
-                    b.Property<int?>("UrlShortId")
+                    b.Property<int>("UrlShortId")
                         .HasColumnType("integer");
 
                     b.Property<string>("UtmCampaign")
@@ -367,14 +361,11 @@ namespace ShortUrl.Migrations
                     b.Property<string>("Image")
                         .HasColumnType("text");
 
-                    b.Property<int>("ShortUrlId")
-                        .HasColumnType("integer");
-
                     b.Property<string>("Title")
                         .IsRequired()
                         .HasColumnType("text");
 
-                    b.Property<int?>("UrlShortId")
+                    b.Property<int>("UrlShortId")
                         .HasColumnType("integer");
 
                     b.HasKey("Id");
@@ -422,7 +413,7 @@ namespace ShortUrl.Migrations
 
                     b.HasIndex("UserId");
 
-                    b.ToTable("ShortUrls");
+                    b.ToTable("UrlShorts");
                 });
 
             modelBuilder.Entity("ShortUrl.Models.UserStripeInfo", b =>
@@ -444,6 +435,64 @@ namespace ShortUrl.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("UserStripeInfos");
+                });
+
+            modelBuilder.Entity("ShortUrl.Models.VCard", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Address")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Email")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("FirstName")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("JobTitle")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("LastName")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Note")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Organization")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Phone")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("UserId")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Website")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("VCards");
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<string>", b =>
@@ -512,24 +561,41 @@ namespace ShortUrl.Migrations
                 {
                     b.HasOne("ShortUrl.Models.UrlShort", null)
                         .WithMany("ClickStats")
-                        .HasForeignKey("UrlShortId");
+                        .HasForeignKey("UrlShortId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("ShortUrl.Models.DestinationUrl", b =>
                 {
                     b.HasOne("ShortUrl.Models.UrlShort", null)
                         .WithMany("DestinationUrls")
-                        .HasForeignKey("UrlShortId");
+                        .HasForeignKey("UrlShortId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("ShortUrl.Models.OgMetadata", b =>
                 {
                     b.HasOne("ShortUrl.Models.UrlShort", null)
                         .WithMany("OgMetadataVariations")
-                        .HasForeignKey("UrlShortId");
+                        .HasForeignKey("UrlShortId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("ShortUrl.Models.UrlShort", b =>
+                {
+                    b.HasOne("Microsoft.AspNetCore.Identity.IdentityUser", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("ShortUrl.Models.VCard", b =>
                 {
                     b.HasOne("Microsoft.AspNetCore.Identity.IdentityUser", "User")
                         .WithMany()
