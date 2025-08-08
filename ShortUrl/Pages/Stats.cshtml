@@ -1,6 +1,5 @@
-@page "/Stats/{id:int?}/{pageNumber:int?}"
+@page
 @model StatsModel
-@using System.Text.Json
 @using Microsoft.AspNetCore.Identity
 @inject SignInManager<IdentityUser> SignInManager
 @inject UserManager<IdentityUser> UserManager
@@ -8,310 +7,310 @@
 @{
     ViewData["Title"] = "URL Statistics";
 }
-<div class="container">
-    <h1 class="text-center my-4">@ViewData["Title"]</h1>
 
-    @if (!SignInManager.IsSignedIn(User) || !(await UserManager.IsInRoleAsync(await UserManager.GetUserAsync(User), "Basic") || await UserManager.IsInRoleAsync(await UserManager.GetUserAsync(User), "Professional") || await UserManager.IsInRoleAsync(await UserManager.GetUserAsync(User), "Enterprise")))
-    {
-        <h1>Access Denied</h1>
-        <p>Only Basic, Professional, or Enterprise users can view URL statistics. Please <a asp-page="/Account/Login">log in</a> with an appropriate account.</p>
-        <p class="text-center"><a asp-page="/Account/Upgrade" class="btn btn-link">Upgrade Now</a></p>
-    }
-    else
-    {
-        @if (Model.ErrorMessage != null)
-        {
-            <div class="alert alert-danger" role="alert">
-                @Model.ErrorMessage
-            </div>
-        }
-        @if (Model.UrlShort == null)
-{
-    <div class="card mb-4">
-        <div class="card-body">
-            <h3 class="card-title">URL Statistics Overview</h3>
-            
-            <form method="get" class="mb-4">
-                <div class="row g-2 align-items-end">
-                    <div class="col-auto">
-                        <label for="startDate" class="form-label">Start Date</label>
-                        <input type="date" id="startDate" name="startDate" class="form-control" value="@Request.Query["startDate"]" />
-                    </div>
-                    <div class="col-auto">
-                        <label for="endDate" class="form-label">End Date</label>
-                        <input type="date" id="endDate" name="endDate" class="form-control" value="@Request.Query["endDate"]" />
-                    </div>
-                    <div class="col-auto">
-                        <button type="submit" class="btn btn-primary">Filter</button>
-                    </div>
-                </div>
-            </form>
-            
-            <div class="mb-4">
-                <h4>Total Clicks: @Model.TotalClicks</h4>
-                @if (Model.Dates.Any())
-                {
-                    <canvas id="clicksChart" width="400" height="200"></canvas>
-                }
-                else
-                {
-                    <p>No click data available for the selected period.</p>
-                }
-            </div>
-            
-            <h4>Your URLs</h4>
-            @if (Model.UserUrls.Any())
-            {
-                <table class="table">
-                    <thead>
-                        <tr>
-                            <th>Short URL</th>
-                            <th>Created At</th>
-                            <th>Clicks</th>
-                            <th>Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @foreach (var url in Model.UserUrls)
-                        {
-                            <tr>
-                                <td><a href="@($"{Request.Scheme}://{Request.Host}/{url.Code}")" target="_blank">@url.Code</a></td>
-                                <td>@url.CreatedAt.ToString("g")</td>
-                                <td>@url.ClickStats.Count</td>
-                                <td>
-                                    <a asp-page="/Stats" asp-route-id="@url.Id" class="btn btn-primary btn-sm">View Details</a>
-                                </td>
-                            </tr>
-                        }
-                    </tbody>
-                </table>
-            }
-            else
-            {
-                <p>No URLs found.</p>
-            }
-        </div>
-    </div>
-}
-else
-{
-            <div class="card mb-4">
-                <div class="card-body">
-                    <h3 class="card-title">URL Details</h3>
-                    <p><strong>Shortened URL:</strong> <a href="@Model.ShortenedUrl" target="_blank">@Model.ShortenedUrl</a></p>
-                    <p><strong>Short Code:</strong> @Model.UrlShort.Code</p>
-                    <p><strong>Created By:</strong> @Model.UrlShort.User?.UserName</p>
-                    <p><strong>Created On:</strong> @Model.UrlShort.CreatedAt.ToString("g")</p>
-                </div>
-            </div>
+<div class="container py-4">
+    <div class="row justify-content-center">
+        <div class="col-lg-10">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a asp-page="/Index">Home</a></li>
+                    <li class="breadcrumb-item active" aria-current="page">Statistics</li>
+                </ol>
+            </nav>
 
-            <div class="card mb-4">
-                <div class="card-body">
-                    <h3 class="card-title">Click Statistics Over Time</h3>
-                    @if (Model.Clicks.Any())
-                    {
-                        <canvas id="clicksChart" width="400" height="200"></canvas>
-                        <button onclick="downloadCSV()" class="btn btn-info mt-3">Export to CSV</button>
+            @if (!string.IsNullOrEmpty(Model.ErrorMessage))
+            {
+                <div class="alert alert-danger" role="alert">
+                    <i class="fas fa-exclamation-triangle me-2"></i>@Model.ErrorMessage
+                </div>
+            }
+
+            @if (Model.UrlShort == null && Model.UserUrls.Any())
+            {
+                <div class="card shadow-sm mb-4">
+                    <div class="card-header bg-primary text-white">
+                        <h4 class="mb-0">Your URL Statistics</h4>
+                    </div>
+                    <div class="card-body">
                         <form method="get" class="mb-4">
-                            <input type="hidden" name="id" value="@Model.UrlShort?.Id" />
-                            <div class="row g-2 align-items-end">
-                                <div class="col-auto">
-                                    <label for="startDate" class="form-label">Start Date</label>
-                                    <input type="date" id="startDate" name="startDate" class="form-control" value="@Request.Query["startDate"]" />
+                            <div class="row g-3 align-items-center">
+                                <div class="col-md-4">
+                                    <label class="form-label">Start Date</label>
+                                    <input type="date" name="startDate" class="form-control" />
                                 </div>
-                                <div class="col-auto">
-                                    <label for="endDate" class="form-label">End Date</label>
-                                    <input type="date" id="endDate" name="endDate" class="form-control" value="@Request.Query["endDate"]" />
+                                <div class="col-md-4">
+                                    <label class="form-label">End Date</label>
+                                    <input type="date" name="endDate" class="form-control" />
                                 </div>
-                                <div class="col-auto">
-                                    <button type="submit" class="btn btn-primary">Filter</button>
+                                <div class="col-md-4 d-flex align-items-end">
+                                    <button type="submit" class="btn btn-primary">
+                                        <i class="fas fa-filter me-2"></i>Filter
+                                    </button>
                                 </div>
                             </div>
                         </form>
-                    }
-                    else
-                    {
-                        <p>No click statistics available for this URL.</p>
-                    }
-                </div>
-            </div>
 
-            @if (Model.UrlShort.DestinationUrls.Any())
-            {
-                <div class="card mb-4">
-                    <div class="card-body">
-                        <h3 class="card-title">Destination URLs</h3>
-                        <table class="table table-bordered">
-                            <thead>
-                                <tr>
-                                    <th>URL</th>
-                                    <th>Weight</th>
-                                    <th>UTM Parameters</th>
-                                    <th>Clicks</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @foreach (var url in Model.UrlShort.DestinationUrls)
-                                {
+                        <div class="mb-4">
+                            <h5>Overview</h5>
+                            <div class="row g-3">
+                                <div class="col-md-4">
+                                    <div class="card bg-light">
+                                        <div class="card-body text-center">
+                                            <h3 class="mb-0">@Model.UserUrls.Count</h3>
+                                            <p class="text-muted mb-0">Active URLs</p>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="card bg-light">
+                                        <div class="card-body text-center">
+                                            <h3 class="mb-0">@Model.TotalClicks</h3>
+                                            <p class="text-muted mb-0">Total Clicks</p>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="card bg-light">
+                                        <div class="card-body text-center">
+                                            <h3 class="mb-0">@(Model.UserUrls.Count > 0 ? Math.Round((double)Model.TotalClicks / Model.UserUrls.Count, 1) : 0)</h3>
+                                            <p class="text-muted mb-0">Avg. Clicks Per URL</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="mb-4">
+                            <h5>Clicks Over Time</h5>
+                            <canvas id="clicksChart" height="250"></canvas>
+                        </div>
+
+                        <h5>Your URLs</h5>
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead class="table-light">
                                     <tr>
-                                        <td><a href="@url.Url" target="_blank">@url.Url</a></td>
-                                        <td>@(url.Weight ?? 1)</td>
-                                        <td>
-                                            @if (!string.IsNullOrEmpty(url.UtmSource))
-                                            {
-                                                <span>UTM: @url.UtmSource, @url.UtmMedium, @url.UtmCampaign</span>
-                                            }
-                                            else
-                                            {
-                                                <span>None</span>
-                                            }
-                                        </td>
-                                        <td><span class="destination-clicks-@url.Id">@Model.ClickCountsByDestination.GetValueOrDefault(url.Id, 0)</span></td>
+                                        <th>Short URL</th>
+                                        <th>Original URL</th>
+                                        <th>Clicks</th>
+                                        <th>Created</th>
+                                        <th>Actions</th>
                                     </tr>
-                                }
-                            </tbody>
-                        </table>
+                                </thead>
+                                <tbody>
+                                    @foreach (var url in Model.UserUrls)
+                                    {
+                                        <tr>
+                                            <td><code>@($"{Request.Scheme}://{Request.Host}/{url.Code}")</code></td>
+                                            <td>@(url.DestinationUrls.FirstOrDefault()?.Url?.Substring(0, Math.Min(30, url.DestinationUrls.FirstOrDefault()?.Url?.Length ?? 0)) ?? "")</td>
+                                            <td>@url.ClickStats.Count</td>
+                                            <td>@url.CreatedAt.ToString("MMM d, yyyy")</td>
+                                            <td>
+                                                <a asp-page="/Stats" asp-route-id="@url.Id" class="btn btn-sm btn-primary">
+                                                    <i class="fas fa-chart-bar"></i>
+                                                </a>
+                                                <a asp-page="/ShortenUrl" asp-route-id="@url.Id" class="btn btn-sm btn-secondary">
+                                                    <i class="fas fa-edit"></i>
+                                                </a>
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
                 </div>
             }
-        } 
+            else if (Model.UrlShort != null)
+            {
+                <div class="card shadow-sm mb-4">
+                    <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                        <h4 class="mb-0">URL Statistics</h4>
+                        <a asp-page="/Stats" class="btn btn-sm btn-light">
+                            <i class="fas fa-arrow-left me-1"></i>Back to All Stats
+                        </a>
+                    </div>
+                    <div class="card-body">
+                        <div class="row mb-4">
+                            <div class="col-md-6">
+                                <h5>URL Details</h5>
+                                <dl class="row">
+                                    <dt class="col-sm-4">Short URL</dt>
+                                    <dd class="col-sm-8"><code>@Model.ShortenedUrl</code> <button class="btn btn-sm btn-outline-secondary" onclick="copyToClipboard('@Model.ShortenedUrl')"><i class="fas fa-copy"></i></button></dd>
+                                    
+                                    <dt class="col-sm-4">Original URL</dt>
+                                    <dd class="col-sm-8">@Model.UrlShort.DestinationUrls.FirstOrDefault()?.Url</dd>
+                                    
+                                    <dt class="col-sm-4">Created</dt>
+                                    <dd class="col-sm-8">@Model.UrlShort.CreatedAt.ToString("MMM d, yyyy")</dd>
+                                    
+                                    @if (Model.UrlShort.ExpirationDate.HasValue)
+                                    {
+                                        <dt class="col-sm-4">Expires</dt>
+                                        <dd class="col-sm-8">@Model.UrlShort.ExpirationDate.Value.ToString("MMM d, yyyy")</dd>
+                                    }
+                                </dl>
+                            </div>
+                            <div class="col-md-6">
+                                <form method="get" class="mb-3">
+                                    <input type="hidden" name="id" value="@Model.UrlShort.Id" />
+                                    <div class="row g-2">
+                                        <div class="col-sm-5">
+                                            <label class="form-label">Start Date</label>
+                                            <input type="date" name="startDate" class="form-control form-control-sm" />
+                                        </div>
+                                        <div class="col-sm-5">
+                                            <label class="form-label">End Date</label>
+                                            <input type="date" name="endDate" class="form-control form-control-sm" />
+                                        </div>
+                                        <div class="col-sm-2 d-flex align-items-end">
+                                            <button type="submit" class="btn btn-primary btn-sm w-100">
+                                                <i class="fas fa-filter"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
 
-        <div class="text-center mt-4">
-            <a href="/Index" class="btn btn-link">Back to URLs</a>
+                        <div class="mb-4">
+                            <h5>Clicks Over Time</h5>
+                            <canvas id="clicksChart" height="250"></canvas>
+                        </div>
+
+                        <div class="mb-4">
+                            <h5>Click Statistics</h5>
+                            <div class="row g-3">
+                                <div class="col-md-4">
+                                    <div class="card bg-light">
+                                        <div class="card-body text-center">
+                                            <h3 class="mb-0">@Model.ClickStats.Count</h3>
+                                            <p class="text-muted mb-0">Total Clicks</p>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                @if (Model.IsProfessionalOrHigher)
+                                {
+                                    <div class="col-md-8">
+                                        <div class="card">
+                                            <div class="card-body">
+                                                <a href="#" class="btn btn-success mb-2" onclick="downloadCSV()">
+                                                    <i class="fas fa-file-csv me-2"></i>Download CSV
+                                                </a>
+                                                @if (Model.ClickStats.Any())
+                                                {
+                                                    <div>
+                                                        <span class="text-muted">Top Countries: </span>
+                                                        @string.Join(", ", Model.ClickStats
+                                                            .Where(c => !string.IsNullOrEmpty(c.Country))
+                                                            .GroupBy(c => c.Country)
+                                                            .OrderByDescending(g => g.Count())
+                                                            .Take(3)
+                                                            .Select(g => $"{g.Key} ({g.Count()})"))
+                                                    </div>
+                                                }
+                                            </div>
+                                        </div>
+                                    </div>
+                                }
+                            </div>
+                        </div>
+
+                        @if (Model.ClickStats.Any())
+                        {
+                            <div>
+                                <h5>Recent Clicks</h5>
+                                <div class="table-responsive">
+                                    <table class="table table-sm table-hover">
+                                        <thead class="table-light">
+                                            <tr>
+                                                <th>Time</th>
+                                                <th>Country</th>
+                                                <th>City</th>
+                                                <th>Device</th>
+                                                <th>Browser</th>
+                                                <th>OS</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            @foreach (var click in Model.ClickStats.Take(10))
+                                            {
+                                                <tr>
+                                                    <td>@click.ClickedAt.ToString("g")</td>
+                                                    <td>@(click.Country ?? "-")</td>
+                                                    <td>@(click.City ?? "-")</td>
+                                                    <td>@(click.Device ?? "-")</td>
+                                                    <td>@(click.Browser ?? "-")</td>
+                                                    <td>@(click.OperatingSystem ?? "-")</td>
+                                                </tr>
+                                            }
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                </div>
+            }
         </div>
-    }
+    </div>
 </div>
 
 @section Scripts {
-    @await Html.PartialAsync("_ValidationScriptsPartial")
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@@microsoft/signalr@latest/dist/browser/signalr.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script>
         document.addEventListener('DOMContentLoaded', function () {
-            const canvas = document.getElementById('clicksChart');
-            if (canvas) {
-                const ctx = canvas.getContext('2d');
-                
-                try {
-                    new Chart(ctx, {
-                        type: 'line',
-                        data: {
-                            labels: @Html.Raw(JsonSerializer.Serialize(Model.Dates)),
-                            datasets: [{
-                                label: 'Clicks',
-                                data: @Html.Raw(JsonSerializer.Serialize(Model.Clicks)),
-                                fill: true,
-                                borderColor: 'rgb(75, 192, 192)',
-                                backgroundColor: 'rgba(75, 192, 192, 0.2)',
-                                tension: 0.4
-                            }]
-                        },
-                        options: {
-                            responsive: true,
-                            plugins: {
-                                legend: { display: true },
-                                title: {
-                                    display: true,
-                                    text: 'Click Statistics Over Time'
-                                }
-                            },
-                            scales: {
-                                x: { display: true, title: { display: true, text: 'Date' } },
-                                y: { display: true, title: { display: true, text: 'Clicks' }, beginAtZero: true }
+            // Chart data
+            var ctx = document.getElementById('clicksChart').getContext('2d');
+            var dates = @Html.Raw(Json.Serialize(Model.Dates));
+            var clicks = @Html.Raw(Json.Serialize(Model.Clicks));
+            
+            new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: dates,
+                    datasets: [{
+                        label: 'Clicks',
+                        data: clicks,
+                        backgroundColor: 'rgba(13, 110, 253, 0.2)',
+                        borderColor: 'rgba(13, 110, 253, 1)',
+                        borderWidth: 2,
+                        tension: 0.1,
+                        fill: true
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                precision: 0
                             }
                         }
-                    });
-                } catch (err) {
-                    console.error("Error creating chart:", err);
+                    }
                 }
-            }
+            });
         });
         
-        @if (Model.UrlShort != null)
-        {
-            <text>
-            // SignalR connection - only initialize when viewing a specific URL
-            const connection = new signalR.HubConnectionBuilder()
-                .withUrl("/clickHub")
-                .build();
-
-            connection.on("ReceiveClickUpdate", (id, totalClicks, destinationClicks, ogClicks) => {
-                if (id === @Model.UrlShort.Id) {
-                    Object.keys(destinationClicks).forEach(id => {
-                        const elem = document.querySelector(`.destination-clicks-${id}`);
-                        if (elem) elem.textContent = destinationClicks[id];
-                    });
-                }
+        function copyToClipboard(text) {
+            navigator.clipboard.writeText(text).then(function() {
+                alert('URL copied to clipboard!');
             });
-
-            connection.start().catch(err => console.error(err));
-            </text>
         }
         
-        @if (Model.UrlShort != null)
-        {
-            // Define CSV only for specific URL view
-            var headers = new List<string> { "Time", "IP Address", "Country", "City" };
-            if (Model.IsProfessionalOrHigher)
-            {
-                headers.AddRange(new[] { "Referrer", "Device", "Browser", "OS", "Language", "Screen Resolution" });
-            }
-            var csvHeader = string.Join(",", headers);
-
-            var csvRows = Model.ClickStats.Select(stat =>
-            {
-                var fields = new List<string>
-                {
-                    $"\"{stat.ClickedAt.ToUniversalTime().ToString("o")}\"", 
-                    $"\"{stat.IpAddress ?? ""}\"",
-                    $"\"{stat.Country ?? ""}\"",
-                    $"\"{stat.City ?? ""}\""
-                };
-
-                if (Model.IsProfessionalOrHigher)
-                {
-                    fields.AddRange(new[]
-                    {
-                        $"\"{stat.Referrer ?? ""}\"",
-                        $"\"{stat.Device ?? ""}\"",
-                        $"\"{stat.Browser ?? ""}\"",
-                        $"\"{stat.OperatingSystem ?? ""}\"",
-                        $"\"{stat.Language ?? ""}\"",
-                        $"\"{stat.ScreenResolution ?? ""}\""
-                    });
-                }
-
-                return string.Join(",", fields);
-            });
-
-            var csv = string.Join("\n", new[] { csvHeader }.Concat(csvRows));
-            
-            <text>
-            const csv = `@Html.Raw(csv)`;
-            function downloadCSV() {
-                const blob = new Blob([csv], { type: 'text/csv' });
-                const url = window.URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = 'stats.csv';
-                a.click();
-                window.URL.revokeObjectURL(url);
-            }
-            </text>
-        }
-        else
-        {
-            <text>
-            function downloadCSV() {
-                alert('CSV download is only available when viewing a specific URL');
-            }
-            </text>
+        function downloadCSV() {
+            var csvContent = @Html.Raw(Json.Serialize(Model.CsvData));
+            var blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            var url = URL.createObjectURL(blob);
+            var link = document.createElement("a");
+            link.setAttribute("href", url);
+            link.setAttribute("download", "click_stats.csv");
+            link.style.display = 'none';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
         }
     </script>
-    <style>
-        .qr-code {
-            max-width: 150px;
-            margin-top: 10px;
-        }
-    </style>
 }

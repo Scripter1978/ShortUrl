@@ -53,7 +53,7 @@ namespace ShortUrl.Pages
                 if (string.IsNullOrWhiteSpace(code))
                 {
                     ErrorMessage = "Slug cannot be empty.";
-                    await _auditService.LogAsync(User.Identity?.Name, "Invalid slug provided for preview", "UrlShort", 0, "Invalid slug");
+                    await _auditService.LogAsync(User.Identity?.Name, "Invalid slug provided for preview", "UrlShort", "Invalid slug");
                     return Page();
                 }
 
@@ -72,14 +72,14 @@ namespace ShortUrl.Pages
                 if (UrlShort == null)
                 {
                     ErrorMessage = "No URL found for the provided slug.";
-                    await _auditService.LogAsync(User.Identity?.Name, $"Failed to find URL for slug: {code}", "UrlShort", 0, "URL not found");
+                    await _auditService.LogAsync(User.Identity?.Name, $"Failed to find URL for slug: {code}", "UrlShort", "URL not found");
                     return Page();
                 }
 
                 if (UrlShort.ExpirationDate.HasValue && UrlShort.ExpirationDate.Value < DateTime.UtcNow)
                 {
                     ErrorMessage = "This URL has expired.";
-                    await _auditService.LogAsync(User.Identity?.Name, $"Attempted to view expired URL: {code}", "UrlShort", UrlShort.Id, "Expired URL");
+                    await _auditService.LogAsync(User.Identity?.Name, $"Attempted to view expired URL: {code}", "UrlShort", "Expired URL");
                     return Page();
                 }
 
@@ -108,14 +108,14 @@ namespace ShortUrl.Pages
                     .ToDictionary(g => g.Key ?? 0, g => g.Count()) ?? new Dictionary<int, int>();
 
                 ShortenedUrl = $"{Request.Scheme}://{Request.Host}/{UrlShort.Code}";
-                await _auditService.LogAsync(User.Identity?.Name, $"Viewed preview for slug: {code}", "UrlShort", UrlShort.Id, "Preview viewed");
+                await _auditService.LogAsync(User.Identity?.Name, $"Viewed preview for slug: {code}", "UrlShort", "Preview viewed");
                 return Page();
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error retrieving URL data for slug: {Code}", code);
                 ErrorMessage = "An error occurred while retrieving URL data. Please try again later.";
-                await _auditService.LogAsync(User.Identity?.Name, $"Error viewing preview for slug: {code}", "UrlShort", 0, ex.Message);
+                await _auditService.LogAsync(User.Identity?.Name, $"Error viewing preview for slug: {code}", "UrlShort", ex.Message);
                 return Page();
             }
         }
@@ -128,7 +128,7 @@ namespace ShortUrl.Pages
                 if (string.IsNullOrWhiteSpace(code))
                 {
                     ErrorMessage = "Slug cannot be empty.";
-                    await _auditService.LogAsync(User.Identity?.Name, "Invalid slug provided for deletion", "UrlShort", 0, "Invalid slug");
+                    await _auditService.LogAsync(User.Identity?.Name, "Invalid slug provided for deletion", "UrlShort", "Invalid slug");
                     return Page();
                 }
 
@@ -139,19 +139,19 @@ namespace ShortUrl.Pages
                 if (urlShort == null)
                 {
                     ErrorMessage = "No URL found for the provided slug.";
-                    await _auditService.LogAsync(User.Identity?.Name, $"Failed to find URL for deletion: {code}", "UrlShort", 0, "URL not found");
+                    await _auditService.LogAsync(User.Identity?.Name, $"Failed to find URL for deletion: {code}", "UrlShort", "URL not found");
                     return Page();
                 }
 
                 if (urlShort.UserId != User.FindFirst(ClaimTypes.NameIdentifier)?.Value && !User.IsInRole("Admin"))
                 {
                     ErrorMessage = "You are not authorized to delete this URL.";
-                    await _auditService.LogAsync(User.Identity?.Name, $"Unauthorized deletion attempt for slug: {code}", "UrlShort", urlShort.Id, "Unauthorized");
+                    await _auditService.LogAsync(User.Identity?.Name, $"Unauthorized deletion attempt for slug: {code}", "UrlShort", "Unauthorized");
                     return Page();
                 }
 
                 await _urlService.DeleteShortUrlAsync(code);
-                await _auditService.LogAsync(User.Identity?.Name, $"Deleted URL with slug: {code}", "UrlShort", urlShort.Id, "URL deleted");
+                await _auditService.LogAsync(User.Identity?.Name, $"Deleted URL with slug: {code}", "UrlShort",  "URL deleted");
                 _cache.Remove($"UrlShort_{code}");
                 return RedirectToPage("/Index");
             }
@@ -159,7 +159,7 @@ namespace ShortUrl.Pages
             {
                 _logger.LogError(ex, "Error deleting URL for slug: {Code}", code);
                 ErrorMessage = "An error occurred while deleting the URL. Please try again later.";
-                await _auditService.LogAsync(User.Identity?.Name, $"Error deleting URL for slug: {code}", "UrlShort", 0, ex.Message);
+                await _auditService.LogAsync(User.Identity?.Name, $"Error deleting URL for slug: {code}", "UrlShort", ex.Message);
                 return Page();
             }
         }

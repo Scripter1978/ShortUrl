@@ -19,6 +19,7 @@ namespace ShortUrl.Data
         public DbSet<OgMetadata> OgMetadataVariations { get; set; }
         public DbSet<AuditLog> AuditLogs { get; set; }
         public DbSet<VCard> VCards { get; set; }
+        public DbSet<MemberSubscription> MemberSubscriptions { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {

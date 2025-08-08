@@ -13,9 +13,9 @@ public class AuditService : IAuditService
         _dbContext = dbContext;
     }
 
-    public async Task LogAsync(string? userId, string action, string entityType, int? entityId, string details)
+    public async Task LogAsync(string? userId, string action, string entityType, string details)
     {
-        if (string.IsNullOrEmpty(userId) || string.IsNullOrEmpty(action) || string.IsNullOrEmpty(entityType) || !entityId.HasValue)
+        if (string.IsNullOrEmpty(userId) || string.IsNullOrEmpty(action) || string.IsNullOrEmpty(entityType) )
         {
             throw new ArgumentException("Invalid parameters for audit log.");
         }
@@ -28,8 +28,7 @@ public class AuditService : IAuditService
         {
             UserId = userForeign.Id,
             Action = action,
-            EntityType = entityType,
-            EntityId = entityId.Value,
+            EntityType = entityType, 
             Details = details,
             Timestamp = DateTime.UtcNow
         };

@@ -1,0 +1,160 @@
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.RazorPages;
+using Microsoft.EntityFrameworkCore;
+using System.Security.Claims;
+using ShortUrl.Data;
+using ShortUrl.Helpers;
+using ShortUrl.Models;
+using ShortUrl.Services;
+
+namespace ShortUrl.Pages;
+[Authorize]
+public class ShortenUrlModel : PageModel
+{
+    private readonly UrlShortenerService _urlShortenerService;
+    private readonly IConfiguration _configuration;
+    private readonly ApplicationDbContext _dbContext;
+    private readonly IWebHostEnvironment _environment;
+    private readonly UserManager<IdentityUser> _userManager;
+
+    public ShortenUrlModel(
+        UrlShortenerService urlShortenerService,
+        IConfiguration configuration,
+        ApplicationDbContext dbContext,
+        IWebHostEnvironment environment,
+        UserManager<IdentityUser> userManager)
+    {
+        _urlShortenerService = urlShortenerService;
+        _configuration = configuration;
+        _dbContext = dbContext;
+        _environment = environment;
+        _userManager = userManager;
+    }
+
+    [BindProperty]
+    public string? CustomSlug { get; set; }
+    [BindProperty]
+    public List<DestinationUrl> DestinationUrls { get; set; } = [];
+    [BindProperty]
+    public List<OgMetadata> OgMetadataVariations { get; set; } = [];
+    [BindProperty]
+    public DateTime? ExpirationDate { get; set; }
+    [BindProperty]
+    public string? Password { get; set; }
+    public string? ShortenedUrl { get; set; }
+    public string AppUrl => _configuration["AppUrl"];
+
+    public void OnGet()
+    {
+        // Just display the form
+    }
+
+    public async Task<IActionResult> OnPostShortenAsync()
+    {
+        // Remove any validation errors related to OgMetadataVariations
+        foreach (var key in ModelState.Keys.Where(k => k.StartsWith("OgMetadataVariations")).ToList())
+        {
+            ModelState.Remove(key);
+        }
+
+        if (!ModelState.IsValid || !DestinationUrls.Any() || DestinationUrls.Any(d => string.IsNullOrWhiteSpace(d.Url)))
+        {
+            ModelState.AddModelError("", "At least one valid destination URL is required.");
+            return Page();
+        }
+
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        var currentCount = await _dbContext.UrlShorts.CountAsync(u => u.UserId == userId);
+        var limit = UrlLimiter.GetShortUrlLimitForUser(User);
+
+        if (limit.HasValue && currentCount >= limit.Value)
+        {
+            ModelState.AddModelError(string.Empty, $"You have reached your limit of {limit.Value} shortened URLs.");
+            return Page();
+        }
+
+        var isProfessionalOrHigher = await _userManager.IsInRoleAsync(await _userManager.FindByIdAsync(userId), "Professional") ||
+                                    await _userManager.IsInRoleAsync(await _userManager.FindByIdAsync(userId), "Enterprise");
+        var isEnterprise = await _userManager.IsInRoleAsync(await _userManager.FindByIdAsync(userId), "Enterprise");
+
+        // Process OG metadata images
+        var ogMetadataWithImages = new List<OgMetadata>();
+        if (isProfessionalOrHigher)
+        {
+            for (int i = 0; i < OgMetadataVariations.Count; i++)
+            {
+                var og = OgMetadataVariations[i];
+                if (Request.Form.Files.Any(f => f.Name == $"OgMetadataVariations[{i}].ImageFile"))
+                {
+                    var file = Request.Form.Files[$"OgMetadataVariations[{i}].ImageFile"];
+                    if (file != null && file.Length > 0)
+                    {
+                        var uploadsFolder = Path.Combine(_environment.WebRootPath, "og-images");
+                        Directory.CreateDirectory(uploadsFolder);
+                        var fileName = $"{Guid.NewGuid()}_{file.FileName}";
+                        var filePath = Path.Combine(uploadsFolder, fileName);
+                        using (var stream = new FileStream(filePath, FileMode.Create))
+                        {
+                            await file.CopyToAsync(stream);
+                        }
+                        og.Image = $"/og-images/{fileName}";
+                    }
+                }
+                if (!string.IsNullOrWhiteSpace(og.Title) || !string.IsNullOrWhiteSpace(og.Description) || !string.IsNullOrWhiteSpace(og.Image))
+                {
+                    ogMetadataWithImages.Add(og);
+                }
+            }
+        }
+
+        // Restrict features based on user role
+        string? customSlug = isProfessionalOrHigher ? CustomSlug : null;
+        List<DestinationUrl> destinationUrls = DestinationUrls;
+        List<OgMetadata> ogMetadataVariations = isProfessionalOrHigher ? ogMetadataWithImages : new List<OgMetadata>();
+        DateTime? expirationDate = isEnterprise ? ExpirationDate : null;
+        string? password = isEnterprise ? Password : null;
+
+        // For non-Professional users, limit to one destination URL and clear UTM parameters
+        if (!isProfessionalOrHigher)
+        {
+            destinationUrls = new List<DestinationUrl> { destinationUrls.First() };
+            destinationUrls[0].UtmSource = null;
+            destinationUrls[0].UtmMedium = null;
+            destinationUrls[0].UtmCampaign = null;
+        }
+
+        // Convert the ExpirationDate to UTC if it has a value
+        if (expirationDate.HasValue)
+        {
+            // Treat unspecified kind dates as if they were local dates
+            if (expirationDate.Value.Kind == DateTimeKind.Unspecified)
+            {
+                expirationDate = DateTime.SpecifyKind(expirationDate.Value, DateTimeKind.Local);
+            }
+
+            // Now convert to UTC
+            expirationDate = expirationDate.Value.ToUniversalTime();
+        }
+
+        try
+        {
+            var code = await _urlShortenerService.CreateShortUrlAsync(
+                userId,
+                customSlug,
+                destinationUrls,
+                ogMetadataVariations,
+                expirationDate,
+                password);
+            ShortenedUrl = $"{_configuration["AppUrl"]}/{code}";
+        }
+        catch (ArgumentException ex)
+        {
+            ModelState.AddModelError("CustomSlug", ex.Message);
+            return Page();
+        }
+
+        return Page();
+    }
+}

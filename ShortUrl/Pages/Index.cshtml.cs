@@ -48,16 +48,36 @@ namespace ShortUrl.Pages
         public List<UrlShort> UserUrls { get; set; } = [];
         public string AppUrl => _configuration["AppUrl"];
         public List<IFormFile> OgImageFiles { get; set; } = [];
+        
+        [BindProperty(SupportsGet = true)]
+        public int CurrentPage { get; set; } = 1;
+        public int PageSize { get; set; } = 2;
+        public int TotalPages { get; set; }
+        public int TotalUrls { get; set; }
 
         public async Task OnGetAsync()
         {
-            var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            var userId = _userManager.GetUserId(User);
+        
+            // Get total count first
+            TotalUrls = await _dbContext.UrlShorts
+                .Where(u => u.UserId == userId)
+                .CountAsync();
+            
+            // Calculate total pages
+            TotalPages = (int)Math.Ceiling(TotalUrls / (double)PageSize);
+        
+            // Apply pagination
             UserUrls = await _dbContext.UrlShorts
+                .Where(u => u.UserId == userId && !u.IsDeleted)
+                .OrderByDescending(u => u.CreatedAt)
+                .Skip((CurrentPage - 1) * PageSize)
+                .Take(PageSize)
                 .Include(u => u.DestinationUrls)
                 .Include(u => u.OgMetadataVariations)
                 .Include(u => u.ClickStats)
-                .Where(u => u.UserId == userId && !u.IsDeleted)
                 .ToListAsync();
+     
         }
 
         public async Task<IActionResult> OnPostShortenAsync()
@@ -136,6 +156,19 @@ namespace ShortUrl.Pages
                 destinationUrls[0].UtmCampaign = null;
             }
 
+            // Convert the ExpirationDate to UTC if it has a value
+            if (expirationDate.HasValue)
+            {
+                // Treat unspecified kind dates as if they were local dates
+                if (expirationDate.Value.Kind == DateTimeKind.Unspecified)
+                {
+                    expirationDate = DateTime.SpecifyKind(expirationDate.Value, DateTimeKind.Local);
+                }
+        
+                // Now convert to UTC
+                expirationDate = expirationDate.Value.ToUniversalTime();
+            }
+            
             try
             {
                 var code = await _urlShortenerService.CreateShortUrlAsync(

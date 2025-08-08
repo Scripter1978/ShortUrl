@@ -1,38 +1,116 @@
-@page "/Profile"
+@page
 @model ProfileModel
+@using Microsoft.AspNetCore.Identity
+@inject SignInManager<IdentityUser> SignInManager
+@inject UserManager<IdentityUser> UserManager
+
 @{
-    ViewData["Title"] = "Profile";
+    ViewData["Title"] = "User Profile";
 }
 
-<div class="container mt-5" style="max-width: 600px;">
-    <h2 class="mb-4"><i class="fas fa-user-circle me-2"></i>Your Profile</h2>
-    <form method="post">
-        <div class="mb-3">
-            <label class="form-label">Email</label>
-            <input asp-for="Email" class="form-control" readonly />
+<div class="container py-4">
+    <div class="row justify-content-center">
+        <div class="col-lg-10">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a asp-page="/Index">Home</a></li>
+                    <li class="breadcrumb-item active" aria-current="page">Profile</li>
+                </ol>
+            </nav>
+
+            <div class="card shadow-sm mb-4">
+                <div class="card-header bg-primary text-white">
+                    <h2 class="h4 mb-0">Your Profile</h2>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6 mb-4">
+                            <h5 class="mb-3">Account Information</h5>
+                            <dl class="row">
+                                <dt class="col-sm-4">Email</dt>
+                                <dd class="col-sm-8">@User.Identity.Name</dd>
+                                
+                                <dt class="col-sm-4">Username</dt>
+                                <dd class="col-sm-8">@Model.Username</dd>
+                                
+                                <dt class="col-sm-4">Member since</dt>
+                                <dd class="col-sm-8">@Model.MemberSince.ToString("MMM d, yyyy")</dd>
+                            </dl>
+                        </div>
+                        
+                        <div class="col-md-6 mb-4">
+                            <h5 class="mb-3">Subscription Details</h5>
+                            <dl class="row">
+                                <dt class="col-sm-4">Current plan</dt>
+                                <dd class="col-sm-8">
+                                    @if(User.IsInRole("Enterprise"))
+                                    {
+                                        <span class="badge bg-success">Enterprise</span>
+                                    }
+                                    else if(User.IsInRole("Professional"))
+                                    {
+                                        <span class="badge bg-primary">Professional</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge bg-secondary">Free</span>
+                                    }
+                                </dd>
+                                
+                                @if(User.IsInRole("Enterprise") || User.IsInRole("Professional"))
+                                {
+                                    <dt class="col-sm-4">Renewal date</dt>
+                                    <dd class="col-sm-8">@Model.SubscriptionRenewalDate?.ToString("MMM d, yyyy")</dd>
+                                }
+                            </dl>
+                            
+                            @if(User.IsInRole("Enterprise") || User.IsInRole("Professional"))
+                            { 
+                                <a class="btn btn-danger" href="/Account/CancelSubscription?returnUrl=%2FAccount%2FProfile">
+                                    <i class="fas fa-times-circle me-2"></i>Cancel Subscription
+                                </a> 
+                            }
+                            else
+                            {
+                                <a asp-page="/Subscription/Plans" class="btn btn-success">
+                                    <i class="fas fa-arrow-circle-up me-2"></i>Upgrade Your Plan
+                                </a>
+                            }
+                        </div>
+                    </div>
+                    
+                    <hr class="my-4">
+                    
+                    <div class="row">
+                        <div class="col-md-6 mb-4">
+                            <h5 class="mb-3">Password Management</h5>
+                            <a asp-page="/Account/ChangePassword" class="btn btn-outline-primary">
+                                <i class="fas fa-key me-2"></i>Change Password
+                            </a>
+                        </div>
+                        
+                        <div class="col-md-6 mb-4">
+                            <h5 class="mb-3">Account Usage</h5>
+                            <dl class="row">
+                                <dt class="col-sm-4">Short URLs</dt>
+                                <dd class="col-sm-8">@Model.ShortUrlCount</dd>
+                                
+                                <dt class="col-sm-4">vCards</dt>
+                                <dd class="col-sm-8">@Model.VCardCount</dd>
+                                
+                                <dt class="col-sm-4">Total Clicks</dt>
+                                <dd class="col-sm-8">@Model.TotalClicks</dd>
+                            </dl>
+                        </div>
+                    </div>
+                    
+                    <div class="mt-4">
+                        <a asp-page="/Index" class="btn btn-outline-secondary">
+                            <i class="fas fa-arrow-left me-2"></i>Back to Dashboard
+                        </a>
+                    </div>
+                </div>
+            </div>
         </div>
-        <div class="mb-3">
-            <label class="form-label">Roles</label>
-            <input value="@string.Join(", ", Model.Roles)" class="form-control" readonly />
-        </div>
-        <div class="mb-3">
-            <label class="form-label">Change Password</label>
-            <input asp-for="NewPassword" class="form-control" type="password" placeholder="New password" />
-            <span asp-validation-for="NewPassword" class="text-danger"></span>
-        </div>
-        <div class="mb-3">
-            <label class="form-label">Confirm Password</label>
-            <input asp-for="ConfirmPassword" class="form-control" type="password" placeholder="Confirm new password" />
-            <span asp-validation-for="ConfirmPassword" class="text-danger"></span>
-        </div>
-        <button type="submit" class="btn btn-primary">Update Password</button>
-    </form>
-    @if (Model.StatusMessage != null)
-    {
-        <div class="alert alert-info mt-3">@Model.StatusMessage</div>
-    }
+    </div>
 </div>
-
-@section Scripts {
-    <partial name="_ValidationScriptsPartial" />
-}

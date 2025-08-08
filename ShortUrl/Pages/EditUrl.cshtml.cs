@@ -216,7 +216,7 @@ namespace ShortUrl.Pages
             // Log audit
             if (isEnterprise)
             {
-                await _auditService.LogAsync(userId, "Edit", "ShortUrl", urlShort.Id,
+                await _auditService.LogAsync(userId, "Edit", "ShortUrl", 
                     $"Updated slug from '{oldCode}' to '{urlShort.Code}', {urlShort.DestinationUrls.Count} URLs, {urlShort.OgMetadataVariations.Count} OG variations.");
             }
 

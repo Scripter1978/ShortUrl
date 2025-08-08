@@ -1,22 +1,628 @@
+:root {
+  /* Primary palette */
+  --primary: #6366f1;
+  --primary-dark: #4f46e5;
+  --primary-light: #818cf8;
+  --secondary: #64748b;
+  --success: #10b981;
+  --danger: #ef4444;
+  --warning: #f59e0b;
+  --info: #0ea5e9;
+  --dark: #1e293b;
+  --light: #f8fafc;
+
+  /* Gradient definitions */
+  --gradient-primary: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+  --gradient-secondary: linear-gradient(135deg, #64748b 0%, #475569 100%);
+  --gradient-success: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  --gradient-danger: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+  --gradient-warning: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+  --gradient-info: linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%);
+  --gradient-dark: linear-gradient(135deg, #334155 0%, #1e293b 100%);
+  --gradient-light: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+
+  /* Shadow effects */
+  --shadow-sm: 0 1px 2px rgba(0,0,0,0.05);
+  --shadow: 0 4px 6px rgba(0,0,0,0.07);
+  --shadow-md: 0 6px 12px rgba(0,0,0,0.08);
+  --shadow-lg: 0 10px 15px -3px rgba(0,0,0,0.1);
+
+  /* Transitions */
+  --transition-base: all 0.3s ease;
+  --transition-slow: all 0.5s ease;
+
+  /* Light mode variables */
+  --body-bg: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+  --body-color: #1e293b;
+  --card-bg: #ffffff;
+  --input-bg: #ffffff;
+  --input-border: #e2e8f0;
+  --border-color: #e2e8f0;
+  --navbar-bg: #ffffff;
+  --dropdown-bg: #ffffff;
+  --table-bg: #ffffff;
+  --table-hover: rgba(99, 102, 241, 0.05);
+  --table-head-bg: var(--gradient-light);
+  --table-border: #e2e8f0;
+  --nav-link-hover: rgba(99, 102, 241, 0.08);
+  --muted-color: #64748b;
+  --validation-color: #ef4444;
+}
+
+/* Dark mode variables */
+body.dark-mode {
+  --body-bg: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+  --body-color: #e2e8f0;
+  --card-bg: #242645;
+  --input-bg: #2d325a;
+  --input-border: #444;
+  --border-color: #444;
+  --navbar-bg: #1a1a2e;
+  --dropdown-bg: #242645;
+  --table-bg: #242645;
+  --table-hover: rgba(99, 102, 241, 0.15);
+  --table-head-bg: linear-gradient(135deg, #2d325a 0%, #242645 100%);
+  --table-border: #444;
+  --nav-link-hover: rgba(99, 102, 241, 0.2);
+  --muted-color: #9ca3af;
+  --validation-color: #f87171;
+}
+
+/* Dark mode text colors and styling */
+body.dark-mode {
+  color: var(--body-color);
+}
+
+/* Dark mode placeholder text styling */
+body.dark-mode ::placeholder {
+  color: #ffffff;
+  opacity: .5; /* Ensure full opacity */
+}
+/* Dark mode form elements */
+body.dark-mode .form-label,
+body.dark-mode label,
+body.dark-mode .col-form-label,
+body.dark-mode .form-check-label,
+body.dark-mode legend,
+body.dark-mode dt,
+body.dark-mode dd,
+body.dark-mode h1, 
+body.dark-mode h3,
+body.dark-mode h5,
+body.dark-mode h6,
+body.dark-mode p,
+body.dark-mode .validation-summary-errors {
+  color: #000000;
+}
+
+card-header.dark-mode h4{
+    color: #ffffff !important;
+}
+/* Dark mode input fields - ensuring text is visible */
+body.dark-mode .form-control,
+body.dark-mode .form-select,
+body.dark-mode input[type="date"],
+body.dark-mode input[type="datetime-local"],
+body.dark-mode input[type="month"],
+body.dark-mode input[type="time"],
+body.dark-mode input[type="text"],
+body.dark-mode input[type="email"],
+body.dark-mode input[type="password"],
+body.dark-mode textarea {
+  color: #ffffff;
+  background-color: var(--input-bg);
+  border-color: var(--input-border);
+}
+
+/* Fix date picker calendar icon in dark mode */
+body.dark-mode ::-webkit-calendar-picker-indicator {
+  filter: invert(1);
+}
+
+/* Dark mode validation styling */
+body.dark-mode .text-danger,
+body.dark-mode .validation-summary-errors {
+  color: var(--validation-color) !important;
+}
+
+/* Dark mode navigation */
+body.dark-mode .navbar-brand,
+body.dark-mode .nav-link:not(.btn-primary) {
+  color: #ffffff;
+}
+
+
+
+/* Dark mode helper text */
+body.dark-mode .text-muted,
+body.dark-mode .form-text,
+body.dark-mode small {
+  color: #adb5bd;
+}
+
+/* Dark mode dropdown */
+body.dark-mode .dropdown-item {
+  color: #000000;
+}
+
+/* Dark mode breadcrumbs */
+body.dark-mode .breadcrumb-item,
+body.dark-mode .breadcrumb-item.active {
+  color: #ffffff;
+}
+
+body.dark-mode .breadcrumb-item a {
+  color: var(--primary-light);
+}
+
+/* ===== Base Styling ===== */
 html {
-  font-size: 14px;
-}
-
-@media (min-width: 768px) {
-  html {
-    font-size: 16px;
-  }
-}
-
-.btn:focus, .btn:active:focus, .btn-link.nav-link:focus, .form-control:focus, .form-check-input:focus {
-  box-shadow: 0 0 0 0.1rem white, 0 0 0 0.25rem #258cfb;
-}
-
-html {
-  position: relative;
-  min-height: 100%;
+  scroll-behavior: smooth;
 }
 
 body {
-  margin-bottom: 60px;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  background: var(--body-bg);
+  color: var(--body-color);
+  min-height: 100vh;
+  transition: var(--transition-base);
+}
+
+a {
+  transition: var(--transition-base);
+}
+
+/* Form elements styling to match design system */
+.form-group {
+  margin-bottom: 1.25rem;
+}
+
+.validation-summary-errors {
+  background-color: rgba(239, 68, 68, 0.1);
+  border-left: 4px solid var(--danger);
+  padding: 1rem;
+  border-radius: 0.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.validation-summary-errors ul {
+  margin-bottom: 0;
+  padding-left: 1rem;
+}
+
+/* ===== Layout Components ===== */
+/* Navbar styling */
+.navbar-modern {
+  background: var(--navbar-bg);
+  box-shadow: var(--shadow);
+  padding: 0.75rem 1rem;
+  transition: var(--transition-base);
+}
+
+.navbar-brand {
+  font-weight: 600;
+  letter-spacing: -0.5px;
+}
+
+.navbar-brand .text-primary {
+  background: var(--gradient-primary);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.navbar-toggler:focus {
+  box-shadow: none;
+}
+
+.nav-link {
+  font-weight: 500;
+  padding: 0.5rem 1rem;
+  border-radius: 0.375rem;
+  transition: var(--transition-base);
+}
+
+.nav-link:hover {
+  background-color: var(--nav-link-hover);
+  transform: translateY(-1px);
+}
+
+.nav-link.active {
+  position: relative;
+}
+
+.nav-link.active:after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 1rem;
+  right: 1rem;
+  height: 2px;
+  background: var(--gradient-primary);
+  border-radius: 2px;
+}
+
+.nav-link.btn-primary {
+  background: var(--gradient-primary);
+  color: white !important;
+  border: none;
+}
+
+.nav-link.btn-primary:hover {
+  box-shadow: 0 4px 12px rgba(79, 70, 229, 0.25);
+  transform: translateY(-1px);
+}
+
+.nav-link.btn-outline-danger {
+  color: var(--danger) !important;
+  border: 1px solid var(--danger);
+}
+
+.nav-link.btn-outline-danger:hover {
+  background: var(--gradient-danger);
+  color: white !important;
+  border-color: transparent;
+}
+
+.badge-role {
+  margin-left: 0.5rem;
+  font-size: 0.65rem;
+  font-weight: 600;
+  padding: 0.25rem 0.5rem;
+}
+
+.dropdown-menu {
+  border: none;
+  box-shadow: var(--shadow-md);
+  border-radius: 0.5rem;
+  background: var(--dropdown-bg);
+}
+
+.dropdown-item {
+  padding: 0.5rem 1rem;
+  font-weight: 500;
+  border-radius: 0.25rem;
+  color: var(--body-color);
+}
+
+.dropdown-item:hover {
+  background-color: var(--nav-link-hover);
+}
+
+.dropdown-divider {
+  border-top: 1px solid var(--border-color);
+}
+
+/* Container styling */
+.container-modern {
+  padding: 2rem 0;
+}
+
+@media (min-width: 992px) {
+  .container-modern {
+    padding: 3rem 0;
+  }
+}
+
+/* ===== UI Components ===== */
+/* Card styling with gradients */
+.card {
+  border: none;
+  border-radius: 0.75rem;
+  box-shadow: var(--shadow);
+  overflow: hidden;
+  transition: var(--transition-base);
+  background: var(--card-bg);
+}
+
+.card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+.card-header {
+  padding: 1rem 1.5rem;
+  border-bottom: none;
+}
+
+.card-header.bg-primary {
+  background: var(--gradient-primary) !important;
+  color: white;
+}
+
+.card-header.bg-light {
+  background: var(--gradient-light) !important;
+}
+
+.card-body {
+  padding: 1.5rem;
+}
+
+.card-body p:last-child {
+  margin-bottom: 0;
+}
+
+/* Button styling with gradients */
+.btn {
+  border-radius: 0.5rem;
+  font-weight: 500;
+  padding: 0.5rem 1rem;
+  transition: var(--transition-base);
+}
+
+.btn-lg {
+  padding: 0.75rem 1.5rem;
+  font-weight: 600;
+}
+
+.btn-sm {
+  padding: 0.25rem 0.75rem;
+  font-size: 0.875rem;
+}
+
+.btn-primary {
+  background: var(--gradient-primary);
+  border: none;
+}
+
+.btn-primary:hover,
+.btn-primary:focus {
+  background: linear-gradient(135deg, #4f46e5 0%, #4338ca 100%);
+  box-shadow: 0 4px 10px rgba(79, 70, 229, 0.25);
+  transform: translateY(-1px);
+  border: none;
+}
+
+.btn-outline-primary {
+  color: var(--primary);
+  border-color: var(--primary);
+}
+
+.btn-outline-primary:hover {
+  background: var(--gradient-primary);
+  border-color: transparent;
+}
+
+.btn-outline-secondary:hover {
+  background: var(--gradient-secondary);
+  border-color: transparent;
+}
+
+.btn-outline-danger:hover {
+  background: var(--gradient-danger);
+  border-color: transparent;
+}
+
+.btn-group .btn {
+  margin: 0 0.125rem;
+}
+
+/* Form controls with gradient accents */
+.form-control,
+.form-select {
+  border-radius: 0.5rem;
+  padding: 0.625rem 1rem;
+  border: 1px solid var(--input-border);
+  transition: var(--transition-base);
+  background-color: var(--input-bg);
+  color: var(--body-color);
+}
+
+.form-control:focus,
+.form-select:focus {
+  border-color: var(--primary-light);
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
+}
+
+.form-label {
+  font-weight: 500;
+  margin-bottom: 0.5rem;
+  color: var(--body-color);
+}
+
+/* Alert styling */
+.alert {
+  border: none;
+  border-radius: 0.75rem;
+  padding: 1rem 1.25rem;
+}
+
+.alert-success {
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.15) 0%, rgba(5, 150, 105, 0.15) 100%);
+  border-left: 4px solid #10b981;
+}
+
+/* Badge styling */
+.badge {
+  font-weight: 600;
+  padding: 0.35em 0.65em;
+  border-radius: 0.375rem;
+}
+
+.badge.bg-primary {
+  background: var(--gradient-primary) !important;
+}
+
+.badge.bg-secondary {
+  background: var(--gradient-secondary) !important;
+}
+
+.badge.bg-success {
+  background: var(--gradient-success) !important;
+}
+
+.badge.bg-info {
+  background: var(--gradient-info) !important;
+}
+
+.badge.bg-dark {
+  background: var(--gradient-dark) !important;
+}
+
+/* Table styling */
+.table {
+  margin-bottom: 0;
+  color: var(--body-color);
+  background-color: var(--table-bg);
+}
+
+.table > :not(:first-child) {
+  border-top: 1px solid var(--table-border);
+}
+
+.table-light {
+  background: var(--table-head-bg);
+}
+
+.table tr {
+  transition: var(--transition-base);
+}
+
+.table-hover tbody tr:hover {
+  background-color: var(--table-hover);
+}
+
+/* Pagination styling */
+.pagination {
+  margin-bottom: 0;
+}
+
+.page-link {
+  border: none;
+  padding: 0.5rem 0.75rem;
+  color: var(--primary);
+  transition: var(--transition-base);
+  background-color: transparent;
+}
+
+.page-link:hover {
+  background-color: var(--nav-link-hover);
+  color: var(--primary-dark);
+}
+
+.page-item.active .page-link {
+  background: var(--gradient-primary);
+  color: white;
+}
+
+.page-item.disabled .page-link {
+  color: var(--muted-color);
+  background: transparent;
+}
+
+/* Welcome card for non-logged in users */
+.shadow-sm.p-4 {
+  background: var(--card-bg);
+  border-radius: 0.75rem;
+  position: relative;
+  overflow: hidden;
+}
+
+.shadow-sm.p-4::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: var(--gradient-primary);
+}
+
+/* Text colors */
+.text-muted {
+  color: var(--muted-color) !important;
+}
+
+/* Code styling */
+code {
+  background: rgba(99, 102, 241, 0.1);
+  color: var(--primary);
+  padding: 0.2rem 0.4rem;
+  border-radius: 0.25rem;
+}
+
+body.dark-mode code {
+  background: rgba(99, 102, 241, 0.2);
+}
+
+/* List groups */
+.list-group-item {
+  background-color: var(--card-bg);
+  border-color: var(--border-color);
+  color: var(--body-color);
+}
+
+/* ===== Utility Classes ===== */
+.text-gradient {
+  background: var(--gradient-primary);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.border-gradient {
+  position: relative;
+  border-radius: 0.75rem;
+  z-index: 0;
+}
+
+.border-gradient::before {
+  content: '';
+  position: absolute;
+  top: -2px;
+  left: -2px;
+  right: -2px;
+  bottom: -2px;
+  background: var(--gradient-primary);
+  border-radius: inherit;
+  z-index: -1;
+}
+
+.border-gradient::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: var(--card-bg);
+  border-radius: inherit;
+  z-index: -1;
+}
+
+/* ===== Responsive Adjustments ===== */
+@media (max-width: 767px) {
+  .card-body {
+    padding: 1.25rem;
+  }
+
+  .table-responsive {
+    border-radius: 0.75rem;
+  }
+}
+
+/* Fix Firefox gradient text */
+@-moz-document url-prefix() {
+  .text-gradient {
+    background: transparent;
+    color: var(--primary);
+  }
+
+  .navbar-brand .text-primary {
+    background: transparent;
+    color: var(--primary);
+  }
+}
+
+/* Theme toggle button specific styles */
+#themeToggleBtn:hover {
+  transform: translateY(-1px);
+}
+
+#themeToggleBtn i {
+  transition: var(--transition-base);
+}
+
+#themeToggleBtn:hover i {
+  transform: rotate(12deg);
 }

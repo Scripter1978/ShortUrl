@@ -54,7 +54,7 @@ namespace ShortUrl.Pages.Account
                 if (!ModelState.IsValid)
                 {
                     ErrorMessage = "Please correct the errors in the form.";
-                    await _auditService.LogAsync(null, "Invalid login attempt", "User", 0, "Invalid form data");
+                    await _auditService.LogAsync(null, "Invalid login attempt", "User",  "Invalid form data");
                     return Page();
                 }
 
@@ -62,33 +62,33 @@ namespace ShortUrl.Pages.Account
                 if (user == null)
                 {
                     ErrorMessage = "Invalid email or password.";
-                    await _auditService.LogAsync(null, "Login failed: User not found", "User", 0, $"Email: {Input.Email}");
+                    await _auditService.LogAsync(null, "Login failed: User not found", "User",  $"Email: {Input.Email}");
                     return Page();
                 }
 
                 var result = await _signInManager.PasswordSignInAsync(user, Input.Password, Input.RememberMe, lockoutOnFailure: true);
                 if (result.Succeeded)
                 {
-                    await _auditService.LogAsync(user.Id, "Successful login", "User", 0, $"Email: {Input.Email}");
-                    return LocalRedirect(returnUrl ?? "/Index");
+                    await _auditService.LogAsync(user.UserName, "Successful login", "User", $"Email: {Input.Email}");
+                    return LocalRedirect("/Index");
                 }
 
                 if (result.IsLockedOut)
                 {
                     ErrorMessage = "This account is locked out. Please try again later.";
-                    await _auditService.LogAsync(user.Id, "Login failed: Account locked out", "User", 0, $"Email: {Input.Email}");
+                    await _auditService.LogAsync(user.UserName, "Login failed: Account locked out", "User",  $"Email: {Input.Email}");
                     return Page();
                 }
 
                 ErrorMessage = "Invalid email or password.";
-                await _auditService.LogAsync(user.Id, "Login failed: Invalid password", "User", 0, $"Email: {Input.Email}");
+                await _auditService.LogAsync(user.UserName, "Login failed: Invalid password", "User",  $"Email: {Input.Email}");
                 return Page();
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error processing login for email: {Email}", Input.Email);
                 ErrorMessage = "An error occurred during login. Please try again later.";
-                await _auditService.LogAsync(Input.Email, "Login error", "User", 0, ex.Message);
+                await _auditService.LogAsync(Input.Email, "Login error", "User", ex.Message);
                 return Page();
             }
         }

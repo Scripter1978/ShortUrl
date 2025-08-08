@@ -96,7 +96,7 @@ namespace ShortUrl.Pages
             IsProfessionalOrHigher = await _userManager.IsInRoleAsync(user, "Professional") || 
                                    await _userManager.IsInRoleAsync(user, "Enterprise");
             
-            await _auditService.LogAsync(User.Identity?.Name, "Viewed all URL stats", "UrlShort", 0, "Stats viewed");
+            await _auditService.LogAsync(User.Identity?.Name, "Viewed all URL stats", "UrlShort", "Stats viewed");
             return Page();
         }
 
@@ -117,7 +117,7 @@ namespace ShortUrl.Pages
                     ErrorMessage = "No URL found for the provided ID.";
 
                     await _auditService.LogAsync(User.Identity?.Name, $"Failed to find URL for ID: {id}",
-                        "UrlShort", id.Value, "URL not found");
+                        "UrlShort", "URL not found");
                     return Page();
                 }
 
@@ -127,7 +127,7 @@ namespace ShortUrl.Pages
                     ErrorMessage = "You are not authorized to view statistics for this URL.";
 
                     await _auditService.LogAsync(User.Identity?.Name, $"Unauthorized stats access for ID: {id}",
-                        "UrlShort", id.Value, "Unauthorized");
+                        "UrlShort",  "Unauthorized");
                     return Page();
                 }
 
@@ -136,7 +136,7 @@ namespace ShortUrl.Pages
                     ErrorMessage = "This URL has expired.";
 
                     await _auditService.LogAsync(User.Identity?.Name,
-                        $"Attempted to view stats for expired URL: {id}", "UrlShort", id.Value, "Expired URL");
+                        $"Attempted to view stats for expired URL: {id}", "UrlShort", "Expired URL");
                     return Page();
                 }
 
@@ -196,7 +196,7 @@ namespace ShortUrl.Pages
                 CsvData = string.Join("\n", new[] { csvHeader }.Concat(csvRows));
 
                 ShortenedUrl = $"{Request.Scheme}://{Request.Host}/{UrlShort.Code}";
-                await _auditService.LogAsync(User.Identity?.Name, $"Viewed stats for URL ID: {id}", "UrlShort", id.Value,
+                await _auditService.LogAsync(User.Identity?.Name, $"Viewed stats for URL ID: {id}", "UrlShort", 
                     "Stats viewed");
                 return Page();
             }
@@ -205,7 +205,7 @@ namespace ShortUrl.Pages
                 _logger.LogError(ex, "Error retrieving stats for URL ID: {Id}", id);
                 ErrorMessage = "An error occurred while retrieving statistics. Please try again later.";
                 await _auditService.LogAsync(User.Identity?.Name, $"Error viewing stats", "UrlShort", 
-                    id ?? 0, ex.Message);
+                     ex.Message);
                 return Page();
             }
         }
