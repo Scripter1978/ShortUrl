@@ -1,0 +1,59 @@
+@page
+@model ShortUrl.Pages.PlansAndPricingModel
+@{
+    ViewData["Title"] = "Plans & Pricing";
+}
+
+<div class="container py-4">
+  <h1 class="text-center mb-4">Plans &amp; Pricing</h1>
+  <div class="row">
+    <div class="col-md-3 mb-4">
+      <div class="card shadow-sm">
+        <div class="card-header bg-primary text-white text-center">
+          <h4>Free</h4>
+        </div>
+        <div class="card-body text-center">
+          <p class="h2">$0</p>
+          <p>Basic features for creating and managing URLs.</p>
+          <a class="btn btn-outline-primary" asp-page="/Account/Register">Sign Up</a>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-3 mb-4">
+      <div class="card shadow-sm">
+        <div class="card-header bg-success text-white text-center">
+          <h4>Basic</h4>
+        </div>
+        <div class="card-body text-center">
+          <p class="h2">$5<span class="fs-6">/month</span></p>
+          <p>Advanced analytics and reports.</p>
+          <a class="btn btn-outline-success" asp-page="/Account/Upgrade">Choose Plan</a>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-3 mb-4">
+      <div class="card shadow-sm">
+        <div class="card-header bg-primary text-white text-center">
+          <h4>Professional</h4>
+        </div>
+        <div class="card-body text-center">
+          <p class="h2">$10<span class="fs-6">/month</span></p>
+          <p>UTM parameters, URL editing, and more.</p>
+          <a class="btn btn-outline-primary" asp-page="/Account/Upgrade">Choose Plan</a>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-3 mb-4">
+      <div class="card shadow-sm">
+        <div class="card-header bg-dark text-white text-center">
+          <h4>Enterprise</h4>
+        </div>
+        <div class="card-body text-center">
+          <p class="h2">$20<span class="fs-6">/month</span></p>
+          <p>QR codes, enhanced support, and premium features.</p>
+          <a class="btn btn-outline-dark" asp-page="/Account/Upgrade">Choose Plan</a>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

@@ -193,7 +193,7 @@ a {
 /* ===== Layout Components ===== */
 /* Navbar styling */
 .navbar-modern {
-  background: var(--navbar-bg);
+  background: linear-gradient(25deg, #7e22ce, #fb923c) !important;
   box-shadow: var(--shadow);
   padding: 0.75rem 1rem;
   transition: var(--transition-base);
@@ -237,8 +237,7 @@ a {
   bottom: 0;
   left: 1rem;
   right: 1rem;
-  height: 2px;
-  background: var(--gradient-primary);
+  height: 2px; 
   border-radius: 2px;
 }
 
@@ -326,7 +325,7 @@ a {
 }
 
 .card-header.bg-primary {
-  background: var(--gradient-primary) !important;
+  background: linear-gradient(45deg, #7e22ce, #fb923c) !important;
   color: white;
 }
 
@@ -625,4 +624,98 @@ body.dark-mode code {
 
 #themeToggleBtn:hover i {
   transform: rotate(12deg);
+}
+.footer-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+.logo-section {
+  flex: 1;
+  min-width: 200px;
+}
+.logo {
+  font-size: 24px;
+  font-weight: bold;
+  margin-bottom: 10px;
+}
+.logo::before {
+  content: '■'; /* Simple grid icon placeholder */
+  color: white;
+  margin-right: 5px;
+}
+.tagline {
+  color: #ddd;
+  font-size: 14px;
+}
+.menu-section {
+  flex: 1;
+  min-width: 150px;
+  margin: 0 20px;
+}
+.menu-title {
+  font-weight: bold;
+  margin-bottom: 15px;
+}
+.menu-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.menu-list li {
+  margin-bottom: 10px;
+}
+.menu-list a {
+  color: #ddd;
+  text-decoration: none;
+}
+.menu-list a:hover {
+  text-decoration: underline;
+}
+.copyright {
+  text-align: center;
+  margin-top: 40px;
+  border-top: 1px solid rgba(255, 255, 255, 0.2);
+  padding-top: 20px;
+  font-size: 12px;
+}
+.copyright p {
+  margin: 5px 0;
+}
+@media (max-width: 768px) {
+  .footer-container {
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+  }
+  .menu-section {
+    margin: 20px 0;
+  }
+}
+
+/* ShortUrl/wwwroot/css/site.css */
+.site-footer {
+  background: linear-gradient(to right, purple, orange);
+  color: white;
+  padding: 40px 20px;
+  text-align: left;
+  font-size: 14px;
+}
+
+.site-footer .nav-link {
+  color: #ffffff;
+  font-weight: 500;
+}
+
+.site-footer .nav-link:hover {
+  text-decoration: underline;
+}
+
+.site-footer,
+.site-footer a,
+.site-footer .text-muted {
+  color: #ffffff !important;
 }

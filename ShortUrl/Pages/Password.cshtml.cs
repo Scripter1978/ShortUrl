@@ -85,7 +85,7 @@ namespace ShortUrl.Pages
                     var response = await client.GetFromJsonAsync<GeoLocationResponse>(geoUrl);
                     if (response != null && response.Error == false)
                     {
-                        country = response.CountryName;
+                        country = response.Country;
                         city = response.City;
                     }
                 }

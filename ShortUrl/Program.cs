@@ -119,6 +119,9 @@ app.MapGet("/{code}", async (string code, ApplicationDbContext db, HttpContext h
     string? country = null;
     string? city = null;
     var ipAddress = httpContext.Connection.RemoteIpAddress?.ToString();
+    #if DEBUG
+    if (ipAddress == "::1") ipAddress = "24.48.0.1"; // Example IP for testing
+    #endif
     if (!string.IsNullOrEmpty(ipAddress) && ipAddress != "::1" && ipAddress != "127.0.0.1")
     {
         try
@@ -128,7 +131,7 @@ app.MapGet("/{code}", async (string code, ApplicationDbContext db, HttpContext h
             var response = await client.GetFromJsonAsync<GeoLocationResponse>(geoUrl);
             if (response is { Error: false })
             {
-                country = response.CountryName;
+                country = response.Country;
                 city = response.City;
             }
         }
@@ -262,7 +265,7 @@ FN:{vcard.FirstName} {vcard.LastName}
 ORG:{vcard.Organization}
 TITLE:{vcard.JobTitle}
 EMAIL:{vcard.Email}
-TEL:{vcard.Phone}
+TEL:{vcard.Mobile}
 URL:{vcard.Website}
 ADR:;;{vcard.Address};;;
 NOTE:{vcard.Note}
@@ -295,7 +298,9 @@ FN:{vcard.FirstName} {vcard.LastName}
 ORG:{vcard.Organization}
 TITLE:{vcard.JobTitle}
 EMAIL:{vcard.Email}
-TEL:{vcard.Phone}
+TEL;CELL,VOICE;PREF:{vcard.Mobile}
+TEL;HOME,VOICE:{vcard.Phone}
+TEL;WORK;VOICE:{vcard.OfficeNumber}
 URL:{vcard.Website}
 ADR:;;{vcard.Address};;;
 NOTE:{vcard.Note}
@@ -460,7 +465,7 @@ internal class GeoLocationResponse
     public string Ip { get; init; }
     public string City { get; init; }
     public string Region { get; init; }
-    public string CountryName { get; init; }
+    public string Country { get; init; }
     public bool Error { get; init; }
 }
 

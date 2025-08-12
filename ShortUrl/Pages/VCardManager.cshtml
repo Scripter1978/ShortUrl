@@ -40,8 +40,7 @@
 
                                     <div class="form-group mb-3">
                                         <label asp-for="VCard.LastName" class="form-label">Last Name</label>
-                                        <input asp-for="VCard.LastName" class="form-control" />
-                                        <span asp-validation-for="VCard.LastName" class="text-danger"></span>
+                                        <input asp-for="VCard.LastName" class="form-control" /> 
                                     </div>
 
                                     <div class="form-group mb-3">
@@ -69,6 +68,24 @@
                                     </div>
 
                                     <div class="form-group mb-3">
+                                        <label asp-for="VCard.Fax" class="form-label">Fax</label>
+                                        <input asp-for="VCard.Fax" class="form-control" />
+                                        <span asp-validation-for="VCard.Fax" class="text-danger"></span>
+                                    </div>
+
+                                    <div class="form-group mb-3">
+                                        <label asp-for="VCard.Mobile" class="form-label">Mobile</label>
+                                        <input asp-for="VCard.Mobile" class="form-control" />
+                                        <span asp-validation-for="VCard.Mobile" class="text-danger"></span>
+                                    </div>
+
+                                    <div class="form-group mb-3">
+                                        <label asp-for="VCard.OfficeNumber" class="form-label">OfficeNumber</label>
+                                        <input asp-for="VCard.OfficeNumber" class="form-control" />
+                                        <span asp-validation-for="VCard.OfficeNumber" class="text-danger"></span>
+                                    </div>
+
+                                    <div class="form-group mb-3">
                                         <label asp-for="VCard.Website" class="form-label">Website</label>
                                         <input type="url" asp-for="VCard.Website" class="form-control" />
                                         <span asp-validation-for="VCard.Website" class="text-danger"></span>
@@ -82,8 +99,7 @@
 
                                     <div class="form-group mb-3">
                                         <label asp-for="VCard.Note" class="form-label">Note</label>
-                                        <textarea asp-for="VCard.Note" class="form-control" rows="3"></textarea>
-                                        <span asp-validation-for="VCard.Note" class="text-danger"></span>
+                                        <textarea asp-for="VCard.Note" class="form-control" rows="3"></textarea> 
                                     </div>
 
                                     <div class="form-group mt-4">
