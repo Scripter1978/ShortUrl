@@ -51,7 +51,7 @@ namespace ShortUrl.Pages
         
         [BindProperty(SupportsGet = true)]
         public int CurrentPage { get; set; } = 1;
-        public int PageSize { get; set; } = 2;
+        public int PageSize { get; set; } = 10;
         public int TotalPages { get; set; }
         public int TotalUrls { get; set; }
 
@@ -194,16 +194,12 @@ namespace ShortUrl.Pages
         public async Task<IActionResult> OnPostDeleteAsync(int id)
         {
             var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-            var shortUrl = await _dbContext.UrlShorts
-                .FirstOrDefaultAsync(u => u.Id == id && u.UserId == userId && !u.IsDeleted);
-            if (shortUrl == null)
-            {
-                return NotFound();
-            }
-
-            shortUrl.IsDeleted = true;
-            await _dbContext.SaveChangesAsync();
-
+           
+            await _dbContext.UrlShorts.Where(v => v.Id == id && v.UserId == userId)
+                .ExecuteUpdateAsync(setters => setters
+                    .SetProperty(v => v.IsDeleted, true)
+                    .SetProperty(v => v.DeletedAt, DateTime.UtcNow));
+  
             await OnGetAsync();
             return Page();
         }

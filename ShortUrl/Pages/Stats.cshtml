@@ -9,6 +9,7 @@
 }
 
 <div class="container py-4">
+    
     <div class="row justify-content-center">
         <div class="col-lg-10">
             <nav aria-label="breadcrumb">
@@ -36,11 +37,23 @@
                             <div class="row g-3 align-items-center">
                                 <div class="col-md-4">
                                     <label class="form-label">Start Date</label>
-                                    <input type="date" name="startDate" class="form-control" />
+                                    <input type="date" name="startDate" class="form-control"/>
                                 </div>
                                 <div class="col-md-4">
                                     <label class="form-label">End Date</label>
-                                    <input type="date" name="endDate" class="form-control" />
+                                    <input type="date" name="endDate" class="form-control"/>
+                                </div>
+                                <div class="col-md-4">
+                                    <form method="get" class="mb-3">
+                                        <label for="PageSize">Items per page:</label>
+                                        <select id="PageSize" name="PageSize" onchange="this.form.submit()">
+                                            <option value="2" selected=@(Model.PageSize == 2)>2</option>
+                                            <option value="5" selected=@(Model.PageSize == 5)>5</option>
+                                            <option value="10" selected=@(Model.PageSize == 10)>10</option>
+                                            <option value="20" selected=@(Model.PageSize == 20)>20</option>
+                                        </select>
+                                        <input type="hidden" name="pageNumber" value="@Model.PageNumber" />
+                                    </form>
                                 </div>
                                 <div class="col-md-4 d-flex align-items-end">
                                     <button type="submit" class="btn btn-primary">
@@ -89,34 +102,51 @@
                         <div class="table-responsive">
                             <table class="table table-hover">
                                 <thead class="table-light">
-                                    <tr>
-                                        <th>Short URL</th>
-                                        <th>Original URL</th>
-                                        <th>Clicks</th>
-                                        <th>Created</th>
-                                        <th>Actions</th>
-                                    </tr>
+                                <tr>
+                                    <th>Short URL</th>
+                                    <th>Original URL</th>
+                                    <th>Clicks</th>
+                                    <th>Created</th>
+                                    <th>Actions</th>
+                                </tr>
                                 </thead>
                                 <tbody>
-                                    @foreach (var url in Model.UserUrls)
-                                    {
-                                        <tr>
-                                            <td><code>@($"{Request.Scheme}://{Request.Host}/{url.Code}")</code></td>
-                                            <td>@(url.DestinationUrls.FirstOrDefault()?.Url?.Substring(0, Math.Min(30, url.DestinationUrls.FirstOrDefault()?.Url?.Length ?? 0)) ?? "")</td>
-                                            <td>@url.ClickStats.Count</td>
-                                            <td>@url.CreatedAt.ToString("MMM d, yyyy")</td>
-                                            <td>
-                                                <a asp-page="/Stats" asp-route-id="@url.Id" class="btn btn-sm btn-primary">
-                                                    <i class="fas fa-chart-bar"></i>
-                                                </a>
-                                                <a asp-page="/ShortenUrl" asp-route-id="@url.Id" class="btn btn-sm btn-secondary">
-                                                    <i class="fas fa-edit"></i>
-                                                </a>
-                                            </td>
-                                        </tr>
-                                    }
+                                @foreach (var url in Model.UserUrls)
+                                {
+                                    <tr>
+                                        <td><code>@($"{Request.Scheme}://{Request.Host}/{url.Code}")</code></td>
+                                        <td>@(url.DestinationUrls.FirstOrDefault()?.Url?.Substring(0, Math.Min(30, url.DestinationUrls.FirstOrDefault()?.Url?.Length ?? 0)) ?? "")</td>
+                                        <td>@url.ClickStats.Count</td>
+                                        <td>@url.CreatedAt.ToString("MMM d, yyyy")</td>
+                                        <td>
+                                            <a asp-page="/Stats" asp-route-id="@url.Id" class="btn btn-sm btn-primary">
+                                                <i class="fas fa-chart-bar"></i>
+                                            </a>
+                                            <a asp-page="/ShortenUrl" asp-route-id="@url.Id" class="btn btn-sm btn-secondary">
+                                                <i class="fas fa-edit"></i>
+                                            </a>
+                                        </td>
+                                    </tr>
+                                }
                                 </tbody>
                             </table>
+
+                            <nav>
+                                <ul class="pagination">
+                                    <li class="page-item @(Model.PageNumber == 1 ? "disabled" : "")">
+                                        <a class="page-link" href="?pageNumber=@(Model.PageNumber - 1)">Previous</a>
+                                    </li>
+                                    @for (int i = 1; i <= Model.TotalPages; i++)
+                                    {
+                                        <li class="page-item @(i == Model.PageNumber ? "active" : "")">
+                                            <a class="page-link" href="?pageNumber=@i">@i</a>
+                                        </li>
+                                    }
+                                    <li class="page-item @(Model.PageNumber == Model.TotalPages ? "disabled" : "")">
+                                        <a class="page-link" href="?pageNumber=@(Model.PageNumber + 1)">Next</a>
+                                    </li>
+                                </ul>
+                            </nav>
                         </div>
                     </div>
                 </div>
@@ -137,13 +167,13 @@
                                 <dl class="row">
                                     <dt class="col-sm-4">Short URL</dt>
                                     <dd class="col-sm-8"><code>@Model.ShortenedUrl</code> <button class="btn btn-sm btn-outline-secondary" onclick="copyToClipboard('@Model.ShortenedUrl')"><i class="fas fa-copy"></i></button></dd>
-                                    
+
                                     <dt class="col-sm-4">Original URL</dt>
                                     <dd class="col-sm-8">@Model.UrlShort.DestinationUrls.FirstOrDefault()?.Url</dd>
-                                    
+
                                     <dt class="col-sm-4">Created</dt>
                                     <dd class="col-sm-8">@Model.UrlShort.CreatedAt.ToString("MMM d, yyyy")</dd>
-                                    
+
                                     @if (Model.UrlShort.ExpirationDate.HasValue)
                                     {
                                         <dt class="col-sm-4">Expires</dt>
@@ -153,15 +183,15 @@
                             </div>
                             <div class="col-md-6">
                                 <form method="get" class="mb-3">
-                                    <input type="hidden" name="id" value="@Model.UrlShort.Id" />
+                                    <input type="hidden" name="id" value="@Model.UrlShort.Id"/>
                                     <div class="row g-2">
                                         <div class="col-sm-5">
                                             <label class="form-label">Start Date</label>
-                                            <input type="date" name="startDate" class="form-control form-control-sm" />
+                                            <input type="date" name="startDate" class="form-control form-control-sm"/>
                                         </div>
                                         <div class="col-sm-5">
                                             <label class="form-label">End Date</label>
-                                            <input type="date" name="endDate" class="form-control form-control-sm" />
+                                            <input type="date" name="endDate" class="form-control form-control-sm"/>
                                         </div>
                                         <div class="col-sm-2 d-flex align-items-end">
                                             <button type="submit" class="btn btn-primary btn-sm w-100">
@@ -189,7 +219,7 @@
                                         </div>
                                     </div>
                                 </div>
-                                
+
                                 @if (Model.IsProfessionalOrHigher)
                                 {
                                     <div class="col-md-8">
@@ -224,29 +254,45 @@
                                 <div class="table-responsive">
                                     <table class="table table-sm table-hover">
                                         <thead class="table-light">
-                                            <tr>
-                                                <th>Time</th>
-                                                <th>Country</th>
-                                                <th>City</th>
-                                                <th>Device</th>
-                                                <th>Browser</th>
-                                                <th>OS</th>
-                                            </tr>
+                                        <tr>
+                                            <th>Time</th>
+                                            <th>Country</th>
+                                            <th>City</th>
+                                            <th>Device</th>
+                                            <th>Browser</th>
+                                            <th>OS</th>
+                                        </tr>
                                         </thead>
                                         <tbody>
-                                            @foreach (var click in Model.ClickStats.Take(10))
-                                            {
-                                                <tr>
-                                                    <td>@click.ClickedAt.ToString("g")</td>
-                                                    <td>@(click.Country ?? "-")</td>
-                                                    <td>@(click.City ?? "-")</td>
-                                                    <td>@(click.Device ?? "-")</td>
-                                                    <td>@(click.Browser ?? "-")</td>
-                                                    <td>@(click.OperatingSystem ?? "-")</td>
-                                                </tr>
-                                            }
+                                        @foreach (var click in Model.ClickStats.Take(10))
+                                        {
+                                            <tr>
+                                                <td>@click.ClickedAt.ToString("g")</td>
+                                                <td>@(click.Country ?? "-")</td>
+                                                <td>@(click.City ?? "-")</td>
+                                                <td>@(click.Device ?? "-")</td>
+                                                <td>@(click.Browser ?? "-")</td>
+                                                <td>@(click.OperatingSystem ?? "-")</td>
+                                            </tr>
+                                        }
                                         </tbody>
                                     </table>
+                                    <nav>
+                                        <ul class="pagination">
+                                            <li class="page-item @(Model.PageNumber == 1 ? "disabled" : "")">
+                                                <a class="page-link" href="?pageNumber=@(Model.PageNumber - 1)">Previous</a>
+                                            </li>
+                                            @for (int i = 1; i <= Model.TotalPages; i++)
+                                            {
+                                                <li class="page-item @(i == Model.PageNumber ? "active" : "")">
+                                                    <a class="page-link" href="?pageNumber=@i">@i</a>
+                                                </li>
+                                            }
+                                            <li class="page-item @(Model.PageNumber == Model.TotalPages ? "disabled" : "")">
+                                                <a class="page-link" href="?pageNumber=@(Model.PageNumber + 1)">Next</a>
+                                            </li>
+                                        </ul>
+                                    </nav>
                                 </div>
                             </div>
                         }

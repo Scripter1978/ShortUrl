@@ -67,6 +67,19 @@ body.dark-mode {
   --muted-color: #9ca3af;
   --validation-color: #f87171;
 }
+body.dark-mode .privacy-content,
+body.dark-mode .privacy-content p,
+body.dark-mode .privacy-content span,
+body.dark-mode .privacy-content h1,
+body.dark-mode .privacy-content h3,
+body.dark-mode .privacy-content li,
+body.dark-mode .terms-content,
+body.dark-mode .terms-content p,
+body.dark-mode .terms-content span,
+body.dark-mode .terms-content h1,
+body.dark-mode .terms-content li {
+  color: #ffffff !important;
+}
 
 /* Dark mode text colors and styling */
 body.dark-mode {
@@ -695,7 +708,14 @@ body.dark-mode code {
     margin: 20px 0;
   }
 }
-
+@media (prefers-color-scheme: dark) {
+  .response-content-markdown {
+    color: #fff;
+  }
+  .response-content-markdown a {
+    color: #fb923c;
+  }
+}
 /* ShortUrl/wwwroot/css/site.css */
 .site-footer {
   background: linear-gradient(to right, purple, orange);

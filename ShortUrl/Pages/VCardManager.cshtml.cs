@@ -35,19 +35,19 @@ namespace ShortUrl.Pages;
             
             UserVCards = await _dbContext.VCards
                 .Where(v => v.UserId == userId)
+                .Where(v => !v.IsDeleted)
                 .ToListAsync();
-                
-            if (id.HasValue)
-            {
-                var vcard = await _dbContext.VCards
-                    .FirstOrDefaultAsync(v => v.Id == id && v.UserId == userId);
-                    
-                if (vcard != null)
-                {
-                    VCard = vcard;
-                }
-            }
+
+            if (!id.HasValue) return Page();
             
+            var vcard = await _dbContext.VCards
+                .FirstOrDefaultAsync(v => v.Id == id && v.UserId == userId);
+                
+            if (vcard != null)
+            {
+                VCard = vcard;
+            }
+
             return Page();
         }
 
@@ -64,7 +64,7 @@ namespace ShortUrl.Pages;
 
 
             ModelState.MarkFieldValid("VCard.UserId");
-            ModelState.MarkFieldValid("VCard.User"); 
+            ModelState.MarkFieldValid("VCard.User");
             
             if (!ModelState.IsValid)
             {
@@ -100,17 +100,12 @@ namespace ShortUrl.Pages;
         public async Task<IActionResult> OnPostDeleteAsync(int id)
         {
             var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
-            var vcard = await _dbContext.VCards
-                .FirstOrDefaultAsync(v => v.Id == id && v.UserId == userId);
-                
-            if (vcard == null)
-            {
-                return NotFound();
-            }
-            
-            _dbContext.VCards.Remove(vcard);
-            await _dbContext.SaveChangesAsync();
-            
+             
+            await _dbContext.VCards.Where(v => v.Id == id && v.UserId == userId)
+                .ExecuteUpdateAsync(setters => setters
+                    .SetProperty(v => v.IsDeleted, true)
+                    .SetProperty(v => v.DeletedAt, DateTime.UtcNow));
+          
             return RedirectToPage("/VCardManager");
         }
     }

@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
@@ -46,6 +47,15 @@ namespace ShortUrl.Pages
         public List<UrlShort> UserUrls { get; set; } = [];
         public int TotalClicks { get; set; } = 0;
 
+        // Paging properties
+        [BindProperty(SupportsGet = true)]
+        public int PageNumber { get; set; } = 1;
+        [BindProperty(SupportsGet = true)]
+        public int PageSize { get; set; } = 2; // default value
+        public int TotalUrls { get; set; }
+        public int TotalPages { get; set; }
+
+        
         public async Task<IActionResult> OnGetAsync(int? id, DateTime? startDate, DateTime? endDate)
         {
             try
@@ -53,52 +63,65 @@ namespace ShortUrl.Pages
                 var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
 
                 // Show all URLs if no specific ID is provided
-        if (id is null or <= 0)
-        {
-            // Get all user's URLs
-            var userUrlsQuery = _dbContext.UrlShorts 
-                .Include(s => s.User)
-                .Include(s => s.DestinationUrls)
-                .Include(s => s.ClickStats)
-                .Where(s => s.UserId == userId && !s.IsDeleted);
-            
-            UserUrls = await userUrlsQuery.ToListAsync();
-            
-            // Collect all clicks data with date filtering
-            var allClicks = new List<ClickStat>();
-            foreach (var url in UserUrls)
-            {
-                var clicksQuery = _dbContext.ClickStats.Where(c => c.UrlShortId == url.Id);
-                
-                if (startDate.HasValue)
-                    clicksQuery = clicksQuery.Where(c => c.ClickedAt >= 
-                        DateTime.SpecifyKind(startDate.Value.Date, DateTimeKind.Utc));
-                if (endDate.HasValue)
-                    clicksQuery = clicksQuery.Where(c => c.ClickedAt <= 
-                        DateTime.SpecifyKind(endDate.Value.Date.AddDays(1).AddTicks(-1), DateTimeKind.Utc));
-                
-                allClicks.AddRange(await clicksQuery.ToListAsync());
-            }
-            
-            // Calculate total clicks and prepare chart data
-            TotalClicks = allClicks.Count;
-            
-            var clickGroupsList = allClicks
-                .GroupBy(c => c.ClickedAt.Date)
-                .OrderBy(g => g.Key)
-                .ToList();
-                
-            Dates = clickGroupsList.Select(g => g.Key.ToString("yyyy-MM-dd")).ToList();
-            Clicks = clickGroupsList.Select(g => g.Count()).ToList();
-            
-            // Get user role information
-            var user = await _userManager.FindByIdAsync(userId);
-            IsProfessionalOrHigher = await _userManager.IsInRoleAsync(user, "Professional") || 
-                                   await _userManager.IsInRoleAsync(user, "Enterprise");
-            
-            await _auditService.LogAsync(User.Identity?.Name, "Viewed all URL stats", "UrlShort", "Stats viewed");
-            return Page();
-        }
+                if (id is null or <= 0)
+                {
+                    
+                    TotalUrls = await _dbContext.UrlShorts
+                        .Where(u => u.UserId == userId && !u.IsDeleted)
+                        .CountAsync();
+                    // Calculate total pages
+                    TotalPages = (int)Math.Ceiling(TotalUrls / (double)PageSize);
+                    
+                    // Get all user's URLs
+                    var userUrlsQuery = _dbContext.UrlShorts
+                        .Include(s => s.User)
+                        .Include(s => s.DestinationUrls)
+                        .Include(s => s.ClickStats)
+                        .Skip((PageNumber - 1) * PageSize)
+                        .Take(PageSize)
+                        .Where(s => s.UserId == userId && !s.IsDeleted);
+
+                    UserUrls = await userUrlsQuery.ToListAsync();
+
+                    // Collect all clicks data with date filtering
+                    var allClicks = new List<ClickStat>();
+                    foreach (var url in UserUrls)
+                    {
+                        var clicksQuery = _dbContext.ClickStats.Where(c => c.UrlShortId == url.Id);
+
+                        if (startDate.HasValue)
+                            clicksQuery = clicksQuery.Where(c => c.ClickedAt >=
+                                                                 DateTime.SpecifyKind(startDate.Value.Date,
+                                                                     DateTimeKind.Utc));
+                        if (endDate.HasValue)
+                            clicksQuery = clicksQuery.Where(c => c.ClickedAt <=
+                                                                 DateTime.SpecifyKind(
+                                                                     endDate.Value.Date.AddDays(1).AddTicks(-1),
+                                                                     DateTimeKind.Utc));
+
+                        allClicks.AddRange(await clicksQuery.ToListAsync());
+                    }
+
+                    // Calculate total clicks and prepare chart data
+                    TotalClicks = allClicks.Count;
+
+                    var clickGroupsList = allClicks
+                        .GroupBy(c => c.ClickedAt.Date)
+                        .OrderBy(g => g.Key)
+                        .ToList();
+
+                    Dates = clickGroupsList.Select(g => g.Key.ToString("yyyy-MM-dd")).ToList();
+                    Clicks = clickGroupsList.Select(g => g.Count()).ToList();
+
+                    // Get user role information
+                    var user = await _userManager.FindByIdAsync(userId);
+                    IsProfessionalOrHigher = await _userManager.IsInRoleAsync(user, "Professional") ||
+                                             await _userManager.IsInRoleAsync(user, "Enterprise");
+
+                    await _auditService.LogAsync(User.Identity?.Name, "Viewed all URL stats", "UrlShort",
+                        "Stats viewed");
+                    return Page();
+                }
 
                 var cacheKey = $"UrlShort_{id}";
                 UrlShort = await _cache.GetOrCreateAsync(cacheKey, async entry =>
@@ -127,7 +150,7 @@ namespace ShortUrl.Pages
                     ErrorMessage = "You are not authorized to view statistics for this URL.";
 
                     await _auditService.LogAsync(User.Identity?.Name, $"Unauthorized stats access for ID: {id}",
-                        "UrlShort",  "Unauthorized");
+                        "UrlShort", "Unauthorized");
                     return Page();
                 }
 
@@ -196,7 +219,7 @@ namespace ShortUrl.Pages
                 CsvData = string.Join("\n", new[] { csvHeader }.Concat(csvRows));
 
                 ShortenedUrl = $"{Request.Scheme}://{Request.Host}/{UrlShort.Code}";
-                await _auditService.LogAsync(User.Identity?.Name, $"Viewed stats for URL ID: {id}", "UrlShort", 
+                await _auditService.LogAsync(User.Identity?.Name, $"Viewed stats for URL ID: {id}", "UrlShort",
                     "Stats viewed");
                 return Page();
             }
@@ -204,10 +227,21 @@ namespace ShortUrl.Pages
             {
                 _logger.LogError(ex, "Error retrieving stats for URL ID: {Id}", id);
                 ErrorMessage = "An error occurred while retrieving statistics. Please try again later.";
-                await _auditService.LogAsync(User.Identity?.Name, $"Error viewing stats", "UrlShort", 
-                     ex.Message);
+                await _auditService.LogAsync(User.Identity?.Name, $"Error viewing stats", "UrlShort",
+                    ex.Message);
                 return Page();
             }
+        }
+        
+        public async Task<IActionResult> OnPostDeleteAsync(int id)
+        {
+            var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+           
+            await _dbContext.UrlShorts.Where(v => v.Id == id && v.UserId == userId)
+                .ExecuteUpdateAsync(setters => setters
+                    .SetProperty(v => v.IsDeleted, true)
+                    .SetProperty(v => v.DeletedAt, DateTime.UtcNow));
+            return Page();
         }
     }
 }

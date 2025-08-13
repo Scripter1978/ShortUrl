@@ -147,22 +147,22 @@ app.MapGet("/{code}", async (string code, ApplicationDbContext db, HttpContext h
     string? language = null;
     string? operatingSystem = null;
     var isProfessionalOrHigher = false;
-    if (urlShort.User != null)
-    {
-        var roles = await db.UserRoles
-            .Where(ur => ur.UserId == urlShort.UserId)
-            .Join(db.Roles, ur => ur.RoleId, r => r.Id, (ur, r) => r.Name)
-            .ToListAsync();
-        isProfessionalOrHigher = roles.Contains("Professional") || roles.Contains("Enterprise");
-    }
+    
+    var roles = await db.UserRoles
+        .Where(ur => ur.UserId == urlShort.UserId)
+        .Join(db.Roles, ur => ur.RoleId, r => r.Id, (ur, r) => r.Name)
+        .ToListAsync();
+    isProfessionalOrHigher = roles.Contains("Professional") || roles.Contains("Enterprise");
+
+        
  
-        referrer = httpContext.Request.Headers.Referer.ToString();
-        var uaParser = Parser.GetDefault();
-        var ua = uaParser.Parse(httpContext.Request.Headers.UserAgent.ToString());
-        device = ua.Device.Family;
-        browser = $"{ua.Browser.Family} {ua.Browser.Major}.{ua.Browser.Minor}";
-        operatingSystem = $"{ua.OS.Family} {ua.OS.Major}.{ua.OS.Minor}";
-        language = httpContext.Request.Headers.AcceptLanguage.ToString().Split(',').FirstOrDefault()?.Split(';').FirstOrDefault();
+    referrer = httpContext.Request.Headers.Referer.ToString();
+    var uaParser = Parser.GetDefault();
+    var ua = uaParser.Parse(httpContext.Request.Headers.UserAgent.ToString());
+    device = ua.Device.Family;
+    browser = $"{ua.Browser.Family} {ua.Browser.Major}.{ua.Browser.Minor}";
+    operatingSystem = $"{ua.OS.Family} {ua.OS.Major}.{ua.OS.Minor}";
+    language = httpContext.Request.Headers.AcceptLanguage.ToString().Split(',').FirstOrDefault()?.Split(';').FirstOrDefault();
    
 
     var clickStat = new ClickStat
