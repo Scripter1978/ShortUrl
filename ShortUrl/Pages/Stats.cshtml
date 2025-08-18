@@ -122,9 +122,15 @@
                                             <a asp-page="/Stats" asp-route-id="@url.Id" class="btn btn-sm btn-primary">
                                                 <i class="fas fa-chart-bar"></i>
                                             </a>
-                                            <a asp-page="/ShortenUrl" asp-route-id="@url.Id" class="btn btn-sm btn-secondary">
+                                            <a asp-page="/ShortenUrl" asp-page-handler="Delete" asp-route-id="@url.Id" class="btn btn-sm btn-secondary">
                                                 <i class="fas fa-edit"></i>
                                             </a>
+                                            
+                                            <form method="post" asp-page-handler="Delete" asp-route-id="@url.Id" style="display:inline;">
+                                                <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('Are you sure you want to delete this Url?');">
+                                                    <i class="fas fa-trash"></i>
+                                                </button>
+                                            </form> 
                                         </td>
                                     </tr>
                                 }

@@ -5,6 +5,7 @@ using Stripe.Checkout;
 using Stripe;
 using ShortUrl.Data;
 using ShortUrl.Models;
+using System.ComponentModel.DataAnnotations;
 
 namespace ShortUrl.Pages.Account
 {
@@ -34,13 +35,20 @@ namespace ShortUrl.Pages.Account
         }
 
         [BindProperty]
-        public InputModel Input { get; set; }
+        public InputModel Input { get; set; } = new();
 
         public class InputModel
         {
-            public string Email { get; set; }
-            public string Password { get; set; }
-            public string SubscriptionTier { get; set; } // Free, Basic, Professional, Enterprise
+            [Required]
+            [EmailAddress]
+            public string Email { get; set; } = string.Empty;
+            
+            [Required]
+            [DataType(DataType.Password)]
+            public string Password { get; set; } = string.Empty;
+            
+            [Required]
+            public string SubscriptionTier { get; set; } = "Free"; // Default to Free tier
         }
 
         public async Task<IActionResult> OnPostAsync()

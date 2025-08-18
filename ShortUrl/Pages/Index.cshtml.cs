@@ -46,7 +46,7 @@ namespace ShortUrl.Pages
         public string? Password { get; set; }
         public string? ShortenedUrl { get; set; }
         public List<UrlShort> UserUrls { get; set; } = [];
-        public string AppUrl => _configuration["AppUrl"];
+        public string AppUrl => _configuration["AppUrl"] ?? string.Empty;
         public List<IFormFile> OgImageFiles { get; set; } = [];
         
         [BindProperty(SupportsGet = true)]
@@ -58,6 +58,10 @@ namespace ShortUrl.Pages
         public async Task OnGetAsync()
         {
             var userId = _userManager.GetUserId(User);
+            if (userId == null)
+            {
+                return;
+            }
         
             // Get total count first
             TotalUrls = await _dbContext.UrlShorts
@@ -98,6 +102,12 @@ namespace ShortUrl.Pages
 
             
             var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (userId == null)
+            {
+                ModelState.AddModelError(string.Empty, "User identification failed.");
+                return Page();
+            }
+            
             var currentCount = await _dbContext.UrlShorts.CountAsync(u => u.UserId == userId);
             var limit = UrlLimiter.GetShortUrlLimitForUser(User);
 
@@ -106,13 +116,20 @@ namespace ShortUrl.Pages
                 ModelState.AddModelError(string.Empty, $"You have reached your limit of {limit.Value} shortened URLs.");
                 return Page(); // or return a suitable response
             }
-            var isProfessionalOrHigher = await _userManager.IsInRoleAsync(await _userManager.FindByIdAsync(userId), "Professional") ||
-                                        await _userManager.IsInRoleAsync(await _userManager.FindByIdAsync(userId), "Enterprise");
-            var isEnterprise = await _userManager.IsInRoleAsync(await _userManager.FindByIdAsync(userId), "Enterprise");
+            
+            // Fix for nullable warning
+            var user = await _userManager.FindByIdAsync(userId);
+            if (user == null)
+            {
+                ModelState.AddModelError(string.Empty, "User not found.");
+                return Page();
+            }
+            
+            var isBasicOrHigher = await _userManager.IsInRoleAsync(user, "Basic");
 
             // Process OG metadata images
             var ogMetadataWithImages = new List<OgMetadata>();
-            if (isProfessionalOrHigher)
+            if (isBasicOrHigher)
             {
                 for (int i = 0; i < OgMetadataVariations.Count; i++)
                 {
@@ -141,14 +158,14 @@ namespace ShortUrl.Pages
             }
 
             // Restrict features based on user role
-            string? customSlug = isProfessionalOrHigher ? CustomSlug : null;
+            string? customSlug = isBasicOrHigher ? CustomSlug : null;
             List<DestinationUrl> destinationUrls = DestinationUrls;
-            List<OgMetadata> ogMetadataVariations = isProfessionalOrHigher ? ogMetadataWithImages : new List<OgMetadata>();
-            DateTime? expirationDate = isEnterprise ? ExpirationDate : null;
-            string? password = isEnterprise ? Password : null;
+            List<OgMetadata> ogMetadataVariations = isBasicOrHigher ? ogMetadataWithImages : new List<OgMetadata>();
+            DateTime? expirationDate = isBasicOrHigher ? ExpirationDate : null;
+            string? password = isBasicOrHigher ? Password : null;
 
-            // For non-Professional users, limit to one destination URL and clear UTM parameters
-            if (!isProfessionalOrHigher)
+            // For non-Basic users, limit to one destination URL and clear UTM parameters
+            if (!isBasicOrHigher)
             {
                 destinationUrls = new List<DestinationUrl> { destinationUrls.First() };
                 destinationUrls[0].UtmSource = null;

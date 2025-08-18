@@ -22,8 +22,8 @@ namespace ShortUrl.Pages.Account
             _dbContext = dbContext;
         }
 
-        public string Username { get; set; }
-        public DateTime MemberSince { get; set; }
+        public string Username { get; set; } = string.Empty;
+        public DateTime MemberSince { get; set; } = DateTime.UtcNow;
         public DateTime? SubscriptionRenewalDate { get; set; }
         public int ShortUrlCount { get; set; }
         public int VCardCount { get; set; }
@@ -32,6 +32,11 @@ namespace ShortUrl.Pages.Account
         public async Task<IActionResult> OnGetAsync()
         {
             var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (userId == null)
+            {
+                return RedirectToPage("/Account/Login");
+            }
+            
             var user = await _userManager.FindByIdAsync(userId);
             
             if (user == null)
@@ -39,7 +44,7 @@ namespace ShortUrl.Pages.Account
                 return NotFound();
             }
 
-            Username = user.UserName;
+            Username = user.UserName ?? string.Empty;
             
             // Get the user creation date - fallback to current time if not available
             var userClaims = await _userManager.GetClaimsAsync(user);

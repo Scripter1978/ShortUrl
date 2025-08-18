@@ -35,9 +35,20 @@ namespace ShortUrl.Pages
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
             _cache = cache ?? throw new ArgumentNullException(nameof(cache));
             _userManager = userManager ?? throw new ArgumentNullException(nameof(userManager));
+            
+            // Initialize non-nullable properties
+            UrlShort = new UrlShort { 
+                Code = string.Empty,
+                UserId = string.Empty,
+                DestinationUrls = new List<DestinationUrl>(),
+                OgMetadataVariations = new List<OgMetadata>(),
+                ClickStats = new List<ClickStat>()
+            };
+            ShortenedUrl = string.Empty;
+            ErrorMessage = string.Empty;
         }
 
-        public UrlShort UrlShort { get; set; }
+        public UrlShort? UrlShort { get; set; }
         public string ShortenedUrl { get; set; }
         public List<ClickStat> ClickStats { get; set; } = new List<ClickStat>();
         public Dictionary<int, int> ClickCountsByDestination { get; set; } = new Dictionary<int, int>();
@@ -120,11 +131,17 @@ namespace ShortUrl.Pages
             }
         }
 
-        [Authorize(Policy = "BasicClient")]
         public async Task<IActionResult> OnPostDeleteAsync(string code)
         {
             try
             {
+                // Check if user has proper role directly in the method
+                if (!User.IsInRole("Basic") && !User.IsInRole("Admin"))
+                {
+                    ErrorMessage = "You don't have permission to delete URLs.";
+                    return Page();
+                }
+                
                 if (string.IsNullOrWhiteSpace(code))
                 {
                     ErrorMessage = "Slug cannot be empty.";

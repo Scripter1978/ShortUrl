@@ -4,37 +4,49 @@
     ViewData["Title"] = "Upgrade Subscription";
 }
 
-<h1>Upgrade Subscription</h1>
+<div class="container py-4">
+    <h1 class="mb-4">Upgrade Your Subscription</h1>
 
-@if (User.IsInRole("Free") || User.IsInRole("Basic") || User.IsInRole("Professional"))
-{
-    <p>Upgrade your account to access more features.</p>
-    <form method="post">
-        <div asp-validation-summary="All" class="text-danger"></div>
-        <div class="form-group">
-            <label for="SubscriptionTier">Select Tier</label>
-            <select asp-for="Input.SubscriptionTier" class="form-control">
-                @if (User.IsInRole("Free"))
-                {
-                    <option value="Basic">Basic ($5/month - Stats)</option>
-                }
-                @if (User.IsInRole("Free") || User.IsInRole("Basic"))
-                {
-                    <option value="Professional">Professional ($10/month - UTM Parameters, Edit URLs)</option>
-                }
-                <option value="Enterprise">Enterprise ($20/month - QR Codes)</option>
-            </select>
-            <span asp-validation-for="Input.SubscriptionTier" class="text-danger"></span>
+    @if (User.IsInRole("Free"))
+    {
+        <div class="row mb-4">
+            <div class="col-md-6">
+                <div class="card shadow-sm border-success">
+                    <div class="card-header bg-success text-white text-center">
+                        <h4>Basic Plan</h4>
+                    </div>
+                    <div class="card-body">
+                        <p class="h2 text-center">$15<span class="fs-6">/month</span></p>
+                        <p class="text-center mb-4">Unlock all premium features</p>
+                        <ul class="list-unstyled mb-4">
+                            <li><i class="fas fa-check text-success me-2"></i>Up to 200 Shortened URLs</li>
+                            <li><i class="fas fa-check text-success me-2"></i>Up to 50 VCards</li>
+                            <li><i class="fas fa-check text-success me-2"></i>Advanced Analytics and Reports</li>
+                            <li><i class="fas fa-check text-success me-2"></i>Custom URLs</li>
+                            <li><i class="fas fa-check text-success me-2"></i>UTM Parameters</li>
+                            <li><i class="fas fa-check text-success me-2"></i>Password Protection</li>
+                            <li><i class="fas fa-check text-success me-2"></i>QR Code Generation</li>
+                        </ul>
+                        <form method="post">
+                            <div asp-validation-summary="All" class="text-danger"></div>
+                            <input type="hidden" asp-for="Input.SubscriptionTier" value="Basic" />
+                            <button type="submit" class="btn btn-success w-100">Upgrade Now</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
         </div>
-        <button type="submit" class="btn btn-primary">Upgrade Now</button>
-    </form>
-}
-else if (User.IsInRole("Enterprise"))
-{
-    <p>You are already on the Enterprise plan with all features.</p>
-    <p><a asp-page="/Stats">View your URL stats</a></p>
-}
-else
-{
-    <p>Please <a asp-page="/Account/Login">log in</a> to upgrade your account.</p>
-}
+    }
+    else if (User.IsInRole("Basic"))
+    {
+        <div class="alert alert-success">
+            <h4><i class="fas fa-check-circle me-2"></i>You're all set!</h4>
+            <p>You are already on the Basic plan with all premium features.</p>
+            <p><a asp-page="/Stats" class="btn btn-outline-success mt-2">View your URL stats</a></p>
+        </div>
+    }
+    else
+    {
+        <p>Please <a asp-page="/Account/Login">log in</a> to upgrade your account.</p>
+    }
+</div>

@@ -11,13 +11,21 @@ using Microsoft.Extensions.Caching.Memory;
 using System.Text.RegularExpressions;
 using ShortUrl.Models;
 using Microsoft.AspNetCore.SignalR;
+using ShortUrl.Helpers;
 using ShortUrl.Hubs;
+using Microsoft.AspNetCore.Http;
+using System.Net;
+using System.Security.Claims;
+using Microsoft.AspNetCore.Antiforgery;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
+
+// Register the RateLimiter service
+builder.Services.AddSingleton<RateLimiter>();
 
 builder.Services.AddIdentity<IdentityUser, IdentityRole>(options =>
 {
@@ -34,17 +42,51 @@ builder.Services.AddIdentity<IdentityUser, IdentityRole>(options =>
 .AddRoles<IdentityRole>();
 
 builder.Services.AddAuthorizationBuilder()
-    .AddPolicy("BasicClient", policy => policy.RequireRole("Basic", "Professional", "Enterprise"))
-    .AddPolicy("ProfessionalClient", policy => policy.RequireRole("Professional", "Enterprise"))
-    .AddPolicy("EnterpriseClient", policy => policy.RequireRole("Enterprise"));
-
-builder.Services.AddRazorPages();
+    .AddPolicy("BasicClient", policy => policy.RequireRole("Basic"));
+builder.Services.AddControllers()
+    .ConfigureApiBehaviorOptions(options =>
+    {
+        options.SuppressModelStateInvalidFilter = false;
+        options.InvalidModelStateResponseFactory = context =>
+        {
+            var errors = context.ModelState
+                .Where(e => e.Value?.Errors.Count > 0)
+                .ToDictionary(
+                    kvp => kvp.Key,
+                    kvp => kvp.Value?.Errors.Select(e => e.ErrorMessage).ToArray()
+                );
+            return new BadRequestObjectResult(new { errors });
+        };
+    });
+builder.Services.AddRazorPages()
+    .AddRazorPagesOptions(options =>
+    {
+        options.Conventions.ConfigureFilter(new AutoValidateAntiforgeryTokenAttribute());
+    });
 builder.Services.AddSignalR(); // Add SignalR
-builder.Services.AddScoped<UrlShortenerService>();
+
+// Updated service registration to include configuration for URL validation and rate limiting
+builder.Services.AddScoped<UrlShortenerService>(sp => 
+    new UrlShortenerService(
+        sp.GetRequiredService<ApplicationDbContext>(),
+        sp.GetRequiredService<IConfiguration>(),
+        sp.GetRequiredService<RateLimiter>(),
+        sp.GetRequiredService<IHttpContextAccessor>()));
+
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddHttpClient();
 builder.Services.AddMemoryCache();
 builder.Services.AddScoped<IAuditService, AuditService>();
+
+// Add HSTS options to the services configuration
+builder.Services.AddHsts(options =>
+{
+    options.Preload = true;
+    options.IncludeSubDomains = true;
+    options.MaxAge = TimeSpan.FromDays(365); // 1 year
+    options.ExcludedHosts.Add("localhost");
+    options.ExcludedHosts.Add("127.0.0.1");
+});
 
 var app = builder.Build();
 
@@ -68,8 +110,18 @@ app.UseAuthorization();
 app.MapRazorPages();
 app.MapHub<ClickHub>("/clickHub"); // Map SignalR hub
 
-app.MapGet("/{code}", async (string code, ApplicationDbContext db, HttpContext httpContext, IHttpClientFactory httpClientFactory, IConfiguration configuration, IHttpContextAccessor httpContextAccessor, IMemoryCache cache, IHubContext<ClickHub> hubContext) =>
+app.MapGet("/{code}", async (string code, ApplicationDbContext db, HttpContext httpContext, IHttpClientFactory httpClientFactory, IConfiguration configuration, IHttpContextAccessor httpContextAccessor, IMemoryCache cache, IHubContext<ClickHub> hubContext, RateLimiter rateLimiter) =>
 {
+    // Get the client IP address
+    var ipAddress = httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+    var isAuthenticated = httpContext.User.Identity?.IsAuthenticated ?? false;
+    
+    // Apply rate limiting
+    if (!rateLimiter.AllowRedirection(ipAddress, isAuthenticated))
+    {
+        return Results.StatusCode(429); // Too Many Requests
+    }
+    
     var cacheKey = $"UrlShort_{code}";
     var urlShort = await cache.GetOrCreateAsync(cacheKey, async entry =>
     {
@@ -96,8 +148,29 @@ app.MapGet("/{code}", async (string code, ApplicationDbContext db, HttpContext h
     if (isSocialMediaCrawler)
     {
         var variationIndex = httpContext.Request.Query["var"].FirstOrDefault();
-        int varIndex = string.IsNullOrEmpty(variationIndex) || !int.TryParse(variationIndex, out varIndex) ? urlShort.CurrentOgMetadataIndex : varIndex;
-        urlShort.CurrentOgMetadataIndex = (urlShort.OgMetadataVariations.Count > 0 ? (urlShort.CurrentOgMetadataIndex + 1) % urlShort.OgMetadataVariations.Count : 0);
+        
+        // Validate the var parameter to ensure it's a valid integer within bounds
+        if (!string.IsNullOrEmpty(variationIndex) && int.TryParse(variationIndex, out var varIndex))
+        {
+            // Ensure the index is within the valid range
+            if (varIndex >= 0 && urlShort.OgMetadataVariations.Count > 0 && varIndex < urlShort.OgMetadataVariations.Count)
+            {
+                // Valid index, use it
+            }
+            else
+            {
+                // Invalid index, fall back to current index
+                varIndex = urlShort.CurrentOgMetadataIndex;
+            }
+        }
+        else
+        {
+            // Not a valid integer, use current index
+            varIndex = urlShort.CurrentOgMetadataIndex;
+        }
+        
+        urlShort.CurrentOgMetadataIndex = (urlShort.OgMetadataVariations.Count > 0 ? 
+            (urlShort.CurrentOgMetadataIndex + 1) % urlShort.OgMetadataVariations.Count : 0);
         await db.SaveChangesAsync();
         return Results.Redirect($"/Preview/{code}?var={varIndex}");
     }
@@ -118,26 +191,43 @@ app.MapGet("/{code}", async (string code, ApplicationDbContext db, HttpContext h
 
     string? country = null;
     string? city = null;
-    var ipAddress = httpContext.Connection.RemoteIpAddress?.ToString();
-    #if DEBUG
-    if (ipAddress == "::1") ipAddress = "24.48.0.1"; // Example IP for testing
-    #endif
-    if (!string.IsNullOrEmpty(ipAddress) && ipAddress != "::1" && ipAddress != "127.0.0.1")
+    
+    
+    // Check for privacy consent cookie before collecting IP
+    var consentCookie = httpContext.Request.Cookies["privacy-consent"];
+    var hasConsent = consentCookie == "accepted";
+    
+    // Only collect IP if user has consented
+    if (hasConsent)
     {
-        try
+        ipAddress = httpContext.Connection.RemoteIpAddress?.ToString();
+        #if DEBUG
+        if (ipAddress == "::1") ipAddress = "24.48.0.1"; // Example IP for testing
+        #endif
+        
+        if (!string.IsNullOrEmpty(ipAddress) && ipAddress != "::1" && ipAddress != "127.0.0.1")
         {
-            var client = httpClientFactory.CreateClient();
-            var geoUrl = string.Format(configuration["GeoLocation:ApiUrl"], ipAddress);
-            var response = await client.GetFromJsonAsync<GeoLocationResponse>(geoUrl);
-            if (response is { Error: false })
+            try
             {
-                country = response.Country;
-                city = response.City;
+                var client = httpClientFactory.CreateClient();
+                var geoUrl = configuration["GeoLocation:ApiUrl"] != null 
+                    ? string.Format(configuration["GeoLocation:ApiUrl"] ?? string.Empty, ipAddress) 
+                    : null;
+                
+                if (geoUrl != null)
+                {
+                    var response = await client.GetFromJsonAsync<GeoLocationResponse>(geoUrl);
+                    if (response is { Error: false })
+                    {
+                        country = response.Country;
+                        city = response.City;
+                    }
+                }
             }
-        }
-        catch
-        {
-            // Log error if needed
+            catch
+            {
+                // Log error if needed
+            }
         }
     }
 
@@ -146,13 +236,13 @@ app.MapGet("/{code}", async (string code, ApplicationDbContext db, HttpContext h
     string? browser = null;
     string? language = null;
     string? operatingSystem = null;
-    var isProfessionalOrHigher = false;
+    var isBasicOrHigher = false;
     
     var roles = await db.UserRoles
         .Where(ur => ur.UserId == urlShort.UserId)
         .Join(db.Roles, ur => ur.RoleId, r => r.Id, (ur, r) => r.Name)
         .ToListAsync();
-    isProfessionalOrHigher = roles.Contains("Professional") || roles.Contains("Enterprise");
+    isBasicOrHigher = roles.Contains("Basic");
 
         
  
@@ -174,11 +264,11 @@ app.MapGet("/{code}", async (string code, ApplicationDbContext db, HttpContext h
         IpAddress = ipAddress,
         Country = country,
         City = city,
-        Referrer = isProfessionalOrHigher ? referrer : null,
-        Device = isProfessionalOrHigher ? device : null,
-        Browser = isProfessionalOrHigher ? browser : null,
-        Language = isProfessionalOrHigher ? language : null,
-        OperatingSystem = isProfessionalOrHigher ? operatingSystem : null,
+        Referrer = isBasicOrHigher ? referrer : null,
+        Device = isBasicOrHigher ? device : null,
+        Browser = isBasicOrHigher ? browser : null,
+        Language = isBasicOrHigher ? language : null,
+        OperatingSystem = isBasicOrHigher ? operatingSystem : null,
         ScreenResolution = null
     };
     db.ClickStats.Add(clickStat);
@@ -192,7 +282,7 @@ app.MapGet("/{code}", async (string code, ApplicationDbContext db, HttpContext h
         query["utm_medium"] = destinationUrl.UtmMedium;
     if (!string.IsNullOrEmpty(destinationUrl.UtmCampaign))
         query["utm_campaign"] = destinationUrl.UtmCampaign;
-    query["clickId"] = clickStat.Id.ToString();
+    query["clickId"] = code;
     uriBuilder.Query = query.ToString();
 
     // Notify clients of a new click
@@ -205,39 +295,97 @@ app.MapGet("/{code}", async (string code, ApplicationDbContext db, HttpContext h
         .Where(c => c.UrlShortId == urlShort.Id && c.OgMetadataId != null)
         .GroupBy(c => c.OgMetadataId)
         .ToDictionaryAsync(g => g.Key!.Value, g => g.Count());
-    await hubContext.Clients.All.SendAsync("ReceiveClickUpdate", code, totalClicks, destinationClicks, ogClicks);
+    await hubContext.Clients.User(urlShort.UserId).SendAsync("ReceiveClickUpdate", code, totalClicks, destinationClicks, ogClicks);
 
     await db.SaveChangesAsync();
     cache.Remove(cacheKey);
     return Results.Redirect(uriBuilder.ToString());
 });
-app.MapPost("/Account/Logout", async (SignInManager<IdentityUser> signInManager, HttpContext httpContext) =>
+app.MapPost("/Account/Logout", async (SignInManager<IdentityUser> signInManager, HttpContext httpContext, IAntiforgery antiforgery) =>
 {
+    // Validate anti-forgery token
+    await antiforgery.ValidateRequestAsync(httpContext);
+    
     await signInManager.SignOutAsync();
     return Results.Redirect("/");
 });
 
-app.MapGet("/api/check-slug/{slug}", async (string slug, ApplicationDbContext db) =>
+// Update the slug validation endpoint
+app.MapGet("/api/check-slug/{slug}", async (string slug, ApplicationDbContext db, HttpContext httpContext, RateLimiter rateLimiter) =>
 {
-    if (string.IsNullOrWhiteSpace(slug) || !Regex.IsMatch(slug, @"^[a-zA-Z0-9\-_]+$"))
+    // Apply rate limiting
+    var ipAddress = httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+    var isAuthenticated = httpContext.User.Identity?.IsAuthenticated ?? false;
+    
+    if (!rateLimiter.AllowApiAccess(ipAddress, isAuthenticated))
     {
-        return Results.Json(new { isAvailable = false, message = "Invalid slug format." });
+        return Results.StatusCode(429); // Too Many Requests
+    }
+    
+    if (!InputValidation.IsValidSlug(slug))
+    {
+        return Results.BadRequest(new { isAvailable = false, message = "Invalid slug format." });
     }
     var isAvailable = !await db.UrlShorts.AnyAsync(s => s.Code.ToLower() == slug.ToLower());
     return Results.Json(new { isAvailable, message = isAvailable ? "Slug is available." : "Slug is already in use." });
 });
 
-app.MapPost("/api/update-screen-resolution", async (ApplicationDbContext db, [FromBody] ScreenResolutionRequest request) =>
+
+
+app.MapPost("/api/update-screen-resolution", async (ApplicationDbContext db, [FromBody] ScreenResolutionRequest request, HttpContext httpContext, RateLimiter rateLimiter) =>
 {
+    // Apply rate limiting
+    var ipAddress = httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+    var isAuthenticated = httpContext.User.Identity?.IsAuthenticated ?? false;
+    
+    if (!rateLimiter.AllowApiAccess(ipAddress, isAuthenticated))
+    {
+        return Results.StatusCode(429); // Too Many Requests
+    }
+    
+    // Validate the request parameters
+    if (request == null || request.ClickId <= 0)
+    {
+        return Results.BadRequest(new { error = "Invalid click ID" });
+    }
+    
+    // Validate the screen resolution format (common format like 1920x1080)
+    if (string.IsNullOrWhiteSpace(request.ScreenResolution) || 
+        !Regex.IsMatch(request.ScreenResolution, @"^\d+x\d+$"))
+    {
+        return Results.BadRequest(new { error = "Invalid screen resolution format" });
+    }
+    
     var clickStat = await db.ClickStats.FindAsync(request.ClickId);
     if (clickStat == null) return Results.NotFound();
+    
+    // Additional validation to ensure the user can only update their own click stats
+    // This prevents parameter tampering where a user could modify other users' data
+    if (httpContext.User.Identity?.IsAuthenticated == true)
+    {
+        var userId = httpContext.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        var urlShort = await db.UrlShorts.FirstOrDefaultAsync(u => u.Id == clickStat.UrlShortId);
+        if (urlShort != null && urlShort.UserId != userId)
+        {
+            return Results.Forbid(); // User trying to modify someone else's data
+        }
+    }
+    
     clickStat.ScreenResolution = request.ScreenResolution;
     await db.SaveChangesAsync();
     return Results.Ok();
 });
-
-app.MapGet("/qr/{code}", async (string code, ApplicationDbContext db, IConfiguration configuration) =>
+app.MapGet("/qr/{code}", async (string code, ApplicationDbContext db, IConfiguration configuration, HttpContext httpContext, RateLimiter rateLimiter) =>
 {
+    // Apply rate limiting
+    var ipAddress = httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+    var isAuthenticated = httpContext.User.Identity?.IsAuthenticated ?? false;
+    
+    if (!rateLimiter.AllowQrGeneration(ipAddress, isAuthenticated))
+    {
+        return Results.StatusCode(429); // Too Many Requests
+    }
+    
     var urlShort = await db.UrlShorts.FirstOrDefaultAsync(s => s.Code == code);
     if (urlShort == null || urlShort.IsDeleted)
         return Results.NotFound();
@@ -251,8 +399,17 @@ app.MapGet("/qr/{code}", async (string code, ApplicationDbContext db, IConfigura
     return Results.File(qrCodeImage, "image/png", $"qr_{code}.png");
 });
 
-app.MapGet("/vcard-qr/{id:int}", async (int id, ApplicationDbContext db) =>
+app.MapGet("/vcard-qr/{id:int}", async (int id, ApplicationDbContext db, HttpContext httpContext, RateLimiter rateLimiter) =>
 {
+    // Apply rate limiting
+    var ipAddress = httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+    var isAuthenticated = httpContext.User.Identity?.IsAuthenticated ?? false;
+    
+    if (!rateLimiter.AllowQrGeneration(ipAddress, isAuthenticated))
+    {
+        return Results.StatusCode(429); // Too Many Requests
+    }
+    
     var vcard = await db.VCards.FirstOrDefaultAsync(v => v.Id == id);
     if (vcard == null)
         return Results.NotFound();
@@ -284,8 +441,23 @@ END:VCARD";
     return Results.File(qrCodeImage, "image/png", $"vcard_{vcard.FirstName}_{vcard.LastName}.png");
 });
 
-app.MapGet("/vcard-qr-print/{id:int}", async (int id, ApplicationDbContext db) =>
+app.MapGet("/vcard-qr-print/{id:int}", async (int id, ApplicationDbContext db, HttpContext httpContext, RateLimiter rateLimiter) =>
 {
+    // Apply rate limiting
+    var ipAddress = httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+    var isAuthenticated = httpContext.User.Identity?.IsAuthenticated ?? false;
+    
+    if (!rateLimiter.AllowQrGeneration(ipAddress, isAuthenticated))
+    {
+        return Results.StatusCode(429); // Too Many Requests
+    }
+    
+    // Validate that the id parameter is positive
+    if (id <= 0)
+    {
+        return Results.BadRequest(new { error = "Invalid ID format" });
+    }
+    
     var vcard = await db.VCards.FirstOrDefaultAsync(v => v.Id == id);
     if (vcard == null)
         return Results.NotFound();
@@ -320,7 +492,7 @@ END:VCARD";
     var html = $@"<!DOCTYPE html>
 <html>
 <head>
-    <title>VCard QR Code - {vcard.FirstName} {vcard.LastName}</title>
+    <title>VCard QR Code - {HttpUtility.HtmlEncode(vcard.FirstName)} {HttpUtility.HtmlEncode(vcard.LastName)}</title>
     <style>
         body {{ margin: 0; display: flex; justify-content: center; align-items: center; height: 100vh; }}
         .container {{ text-align: center; max-height: 20%; max-width: 20%; display: flex; flex-direction: column; justify-content: center; align-items: center; padding-top: 200px; }}
@@ -333,13 +505,9 @@ END:VCARD";
 <body>
     <div class='container'>
         <img src='data:image/png;base64,{base64QrCode}' alt='VCard QR Code'>
-        <h3>{vcard.FirstName} {vcard.LastName}</h3>
+        <h3>{HttpUtility.HtmlEncode(vcard.FirstName)} {HttpUtility.HtmlEncode(vcard.LastName)}</h3>
         <p class='no-print'><button onclick='window.print()'>Print QR Code</button></p>
     </div>
-    <script>
-        // Optional: Automatically open print dialog when page loads
-        // window.onload = function() {{ window.print(); }};
-    </script>
 </body>
 </html>";
 
@@ -366,6 +534,8 @@ app.MapPost("/webhook/stripe", async (
             case EventTypes.CustomerSubscriptionCreated:
             {
                 var subscription = stripeEvent.Data.Object as Subscription;
+                if (subscription == null) break;
+                
                 var userStripeInfo = await db.UserStripeInfos
                     .FirstOrDefaultAsync(u => u.StripeCustomerId == subscription.CustomerId);
                 if (userStripeInfo != null)
@@ -376,8 +546,6 @@ app.MapPost("/webhook/stripe", async (
                         var newRole = subscription.Id switch
                         {
                             { } id when id == configuration["Stripe:BasicPriceId"] => "Basic",
-                            { } id when id == configuration["Stripe:ProfessionalPriceId"] => "Professional",
-                            { } id when id == configuration["Stripe:EnterprisePriceId"] => "Enterprise",
                             _ => null
                         };
                         if (newRole != null)
@@ -398,6 +566,8 @@ app.MapPost("/webhook/stripe", async (
             case EventTypes.CustomerSubscriptionDeleted:
             {
                 var subscription = stripeEvent.Data.Object as Subscription;
+                if (subscription == null) break;
+                
                 var userStripeInfo = await db.UserStripeInfos
                     .FirstOrDefaultAsync(u => u.StripeCustomerId == subscription.CustomerId);
                 if (userStripeInfo != null)
@@ -431,7 +601,7 @@ app.MapPost("/webhook/stripe", async (
 using (var scope = app.Services.CreateScope())
 {
     var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole>>();
-    string[] roles = ["Free", "Basic", "Professional", "Enterprise"];
+    string[] roles = ["Free", "Basic"];
     foreach (var role in roles)
     {
         if (!await roleManager.RoleExistsAsync(role))
@@ -462,15 +632,15 @@ DestinationUrl SelectWeightedDestinationUrl(UrlShort urlShort)
 
 internal class GeoLocationResponse
 {
-    public string Ip { get; init; }
-    public string City { get; init; }
-    public string Region { get; init; }
-    public string Country { get; init; }
+    public string Ip { get; init; } = string.Empty;
+    public string City { get; init; } = string.Empty;
+    public string Region { get; init; } = string.Empty;
+    public string Country { get; init; } = string.Empty;
     public bool Error { get; init; }
 }
 
 internal class ScreenResolutionRequest
 {
     public int ClickId { get; set; }
-    public string ScreenResolution { get; set; }
+    public string ScreenResolution { get; set; } = string.Empty;
 }

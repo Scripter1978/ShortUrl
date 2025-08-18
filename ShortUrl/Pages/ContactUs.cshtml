@@ -4,29 +4,33 @@
     ViewData["Title"] = "Contact Us";
 }
 
-<div class="container py-4">
-    <h1 class="text-center mb-4">Contact Us</h1>
-    <form method="post">
-        <div class="mb-3">
-            <label asp-for="Contact.Name" class="form-label">Name</label>
-            <input asp-for="Contact.Name" class="form-control" />
-            <span asp-validation-for="Contact.Name" class="text-danger"></span>
-        </div>
-        <div class="mb-3">
-            <label asp-for="Contact.Email" class="form-label">Email</label>
-            <input asp-for="Contact.Email" class="form-control" />
-            <span asp-validation-for="Contact.Email" class="text-danger"></span>
-        </div>
-        <div class="mb-3">
-            <label asp-for="Contact.Subject" class="form-label">Subject</label>
-            <input asp-for="Contact.Subject" class="form-control" />
-            <span asp-validation-for="Contact.Subject" class="text-danger"></span>
-        </div>
-        <div class="mb-3">
-            <label asp-for="Contact.Message" class="form-label">Message</label>
-            <textarea asp-for="Contact.Message" class="form-control" rows="5"></textarea>
-            <span asp-validation-for="Contact.Message" class="text-danger"></span>
-        </div>
-        <button type="submit" class="btn btn-primary">Send Message</button>
-    </form>
+<div class="card shadow-sm mb-4">
+    <div class="card-header bg-primary text-white">
+        <h2 class="h4 mb-0">Contact Us</h2>
+    </div>
+    <div class="card-body">
+        <form method="post">
+            <div class="mb-3">
+                <label asp-for="Contact.Name" class="form-label">Name</label>
+                <input asp-for="Contact.Name" class="form-control" />
+                <span asp-validation-for="Contact.Name" class="text-danger"></span>
+            </div>
+            <div class="mb-3">
+                <label asp-for="Contact.Email" class="form-label">Email</label>
+                <input asp-for="Contact.Email" class="form-control" />
+                <span asp-validation-for="Contact.Email" class="text-danger"></span>
+            </div>
+            <div class="mb-3">
+                <label asp-for="Contact.Subject" class="form-label">Subject</label>
+                <input asp-for="Contact.Subject" class="form-control" />
+                <span asp-validation-for="Contact.Subject" class="text-danger"></span>
+            </div>
+            <div class="mb-3">
+                <label asp-for="Contact.Message" class="form-label">Message</label>
+                <textarea asp-for="Contact.Message" class="form-control" rows="5"></textarea>
+                <span asp-validation-for="Contact.Message" class="text-danger"></span>
+            </div>
+            <button type="submit" class="btn btn-primary">Send Message</button>
+        </form>
+    </div>
 </div>

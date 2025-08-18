@@ -12,7 +12,7 @@ using SkiaSharp;
 
 namespace ShortUrl.Pages
 {
-    [Authorize(Policy = "ProfessionalClient")]
+    [Authorize(Policy = "BasicClient")]
     public class EditUrlModel : PageModel
     {
         private readonly ApplicationDbContext _dbContext;
@@ -30,6 +30,10 @@ namespace ShortUrl.Pages
             _environment = environment;
             _userManager = userManager;
             _auditService = auditService;
+            Input = new InputModel
+            {
+                Code = null
+            };
         }
 
         [BindProperty]
@@ -38,7 +42,7 @@ namespace ShortUrl.Pages
         public class InputModel
         {
             public int Id { get; set; }
-            public string Code { get; set; }
+            public required string? Code { get; set; }
             public List<DestinationUrl> DestinationUrls { get; set; } = new List<DestinationUrl>();
             public List<OgMetadata> OgMetadataVariations { get; set; } = new List<OgMetadata>();
             public DateTime? ExpirationDate { get; set; }
@@ -48,6 +52,12 @@ namespace ShortUrl.Pages
         public async Task<IActionResult> OnGetAsync(int id)
         {
             var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (userId == null)
+            {
+                TempData["ErrorMessage"] = "User identification failed.";
+                return RedirectToPage("/Index");
+            }
+            
             var urlShort = await _dbContext.UrlShorts
                 .Include(s => s.DestinationUrls)
                 .Include(s => s.OgMetadataVariations)
@@ -87,7 +97,21 @@ namespace ShortUrl.Pages
             }
 
             var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-            var isEnterprise = await _userManager.IsInRoleAsync(await _userManager.FindByIdAsync(userId), "Enterprise");
+            if (userId == null)
+            {
+                TempData["ErrorMessage"] = "User identification failed.";
+                return RedirectToPage("/Index");
+            }
+            
+            // Fix for nullable warning
+            var user = await _userManager.FindByIdAsync(userId);
+            if (user == null)
+            {
+                TempData["ErrorMessage"] = "User not found.";
+                return RedirectToPage("/Index");
+            }
+            
+            var isBasicOrHigher = await _userManager.IsInRoleAsync(user, "Basic");
 
             var urlShort = await _dbContext.UrlShorts
                 .Include(s => s.DestinationUrls)
@@ -163,7 +187,11 @@ namespace ShortUrl.Pages
                                 width = (int)(height * ((float)targetWidth / targetHeight));
                             }
 
-                            using (var resizedBitmap = bitmap.Resize(new SKImageInfo(width, height), SKFilterQuality.High))
+                            // Use modern SkiaSharp API (v3.x)
+                            // In SkiaSharp 3.x, SKSamplingOptions no longer has FilterQuality property
+                            var samplingOptions = SKSamplingOptions.Default;
+
+                            using (var resizedBitmap = bitmap.Resize(new SKImageInfo(width, height), samplingOptions))
                             using (var image = SKImage.FromBitmap(resizedBitmap))
                             using (var outputStream = new FileStream(filePath, FileMode.Create))
                             {
@@ -188,8 +216,8 @@ namespace ShortUrl.Pages
             // Update UrlShort properties
             var oldCode = urlShort.Code;
             urlShort.Code = Input.Code ?? urlShort.Code;
-            urlShort.ExpirationDate = isEnterprise ? Input.ExpirationDate : urlShort.ExpirationDate;
-            if (isEnterprise && Input.Password != null)
+            urlShort.ExpirationDate = isBasicOrHigher ? Input.ExpirationDate : urlShort.ExpirationDate;
+            if (isBasicOrHigher && Input.Password != null)
             {
                 urlShort.Password = string.IsNullOrEmpty(Input.Password) ? null : BCrypt.Net.BCrypt.HashPassword(Input.Password);
             }
@@ -214,7 +242,7 @@ namespace ShortUrl.Pages
             await _dbContext.SaveChangesAsync();
 
             // Log audit
-            if (isEnterprise)
+            if (isBasicOrHigher)
             {
                 await _auditService.LogAsync(userId, "Edit", "ShortUrl", 
                     $"Updated slug from '{oldCode}' to '{urlShort.Code}', {urlShort.DestinationUrls.Count} URLs, {urlShort.OgMetadataVariations.Count} OG variations.");

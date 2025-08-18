@@ -22,6 +22,11 @@ namespace ShortUrl.Pages
             _dbContext = dbContext;
             _httpClientFactory = httpClientFactory;
             _configuration = configuration;
+            Input = new InputModel
+            {
+                Code = null,
+                Password = null
+            };
         }
 
         [BindProperty]
@@ -29,8 +34,8 @@ namespace ShortUrl.Pages
 
         public class InputModel
         {
-            public string Code { get; set; }
-            public string Password { get; set; }
+            public required string? Code { get; set; }
+            public required string? Password { get; set; }
         }
 
         public IActionResult OnGet(string code)
@@ -40,7 +45,11 @@ namespace ShortUrl.Pages
                 return RedirectToPage("/InvalidUrl");
             }
 
-            Input = new InputModel { Code = code };
+            Input = new InputModel
+            {
+                Code = code,
+                Password = null
+            };
             return Page();
         }
 
@@ -51,7 +60,7 @@ namespace ShortUrl.Pages
                 return Page();
             }
 
-            var urlShort = await _dbContext.UrlShorts
+            var urlShort = await _dbContext.UrlShorts.Include(urlShort => urlShort.DestinationUrls)
                 .Include(s => s.User)
                 .Include(s => s.DestinationUrls)
                 .FirstOrDefaultAsync(s => s.Code == Input.Code && !s.IsDeleted);
@@ -66,7 +75,7 @@ namespace ShortUrl.Pages
                 return Page();
             }
 
-            if (!urlShort.DestinationUrls.Any())
+            if (urlShort.DestinationUrls.Count == 0)
             {
                 return RedirectToPage("/InvalidUrl");
             }
@@ -75,34 +84,44 @@ namespace ShortUrl.Pages
 
             string? country = null;
             string? city = null;
-            var ipAddress = HttpContext.Connection.RemoteIpAddress?.ToString();
-            if (!string.IsNullOrEmpty(ipAddress) && ipAddress != "::1" && ipAddress != "127.0.0.1")
+            string? ipAddress = null;
+            
+            // Check for privacy consent cookie before collecting IP
+            var consentCookie = Request.Cookies["privacy-consent"];
+            var hasConsent = consentCookie == "accepted";
+            
+            // Only collect IP if user has consented
+            if (hasConsent)
             {
-                try
+                ipAddress = HttpContext.Connection.RemoteIpAddress?.ToString();
+                if (!string.IsNullOrEmpty(ipAddress) && ipAddress != "::1" && ipAddress != "127.0.0.1")
                 {
-                    var client = _httpClientFactory.CreateClient();
-                    var geoUrl = string.Format(_configuration["GeoLocation:ApiUrl"], ipAddress);
-                    var response = await client.GetFromJsonAsync<GeoLocationResponse>(geoUrl);
-                    if (response != null && response.Error == false)
+                    try
                     {
-                        country = response.Country;
-                        city = response.City;
+                        var client = _httpClientFactory.CreateClient();
+                        var geoUrl = string.Format(_configuration["GeoLocation:ApiUrl"] ?? string.Empty, ipAddress);
+                        var response = await client.GetFromJsonAsync<GeoLocationResponse>(geoUrl);
+                        if (response != null && response.Error == false)
+                        {
+                            country = response.Country;
+                            city = response.City;
+                        }
                     }
-                }
-                catch
-                {
-                    // Log error if needed
+                    catch
+                    {
+                        // Log error if needed
+                    }
                 }
             }
 
-            bool isProfessionalOrHigher = false;
+            bool isBasicOrHigher = false;
             if (urlShort.User != null)
             {
                 var roles = await _dbContext.UserRoles
                     .Where(ur => ur.UserId == urlShort.UserId)
                     .Join(_dbContext.Roles, ur => ur.RoleId, r => r.Id, (ur, r) => r.Name)
                     .ToListAsync();
-                isProfessionalOrHigher = roles.Contains("Professional") || roles.Contains("Enterprise");
+                isBasicOrHigher = roles.Contains("Basic");
             }
 
             string? referrer = null;
@@ -110,15 +129,15 @@ namespace ShortUrl.Pages
             string? browser = null;
             string? language = null;
             string? operatingSystem = null;
-            if (isProfessionalOrHigher)
+            if (isBasicOrHigher)
             {
-                referrer = HttpContext.Request.Headers["Referer"].ToString();
-                var uaParser = Parser.GetDefault();
-                var ua = uaParser.Parse(HttpContext.Request.Headers["User-Agent"].ToString());
+                referrer = HttpContext.Request.Headers.Referer.ToString();
+                var uaParser = await Parser.GetDefaultAsync();
+                var ua = await uaParser.ParseAsync(HttpContext.Request.Headers["User-Agent"].ToString());
                 device = ua.Device.Family;
                 browser = $"{ua.Browser.Family} {ua.Browser.Major}.{ua.Browser.Minor}";
                 operatingSystem = $"{ua.OS.Family} {ua.OS.Major}.{ua.OS.Minor}";
-                language = HttpContext.Request.Headers["Accept-Language"].ToString().Split(',').FirstOrDefault()?.Split(';').FirstOrDefault();
+                language = HttpContext.Request.Headers.AcceptLanguage.ToString().Split(',').FirstOrDefault()?.Split(';').FirstOrDefault();
             }
 
             var clickStat = new ClickStat
@@ -130,11 +149,11 @@ namespace ShortUrl.Pages
                 IpAddress = ipAddress,
                 Country = country,
                 City = city,
-                Referrer = isProfessionalOrHigher ? referrer : null,
-                Device = isProfessionalOrHigher ? device : null,
-                Browser = isProfessionalOrHigher ? browser : null,
-                Language = isProfessionalOrHigher ? language : null,
-                OperatingSystem = isProfessionalOrHigher ? operatingSystem : null,
+                Referrer = isBasicOrHigher ? referrer : null,
+                Device = isBasicOrHigher ? device : null,
+                Browser = isBasicOrHigher ? browser : null,
+                Language = isBasicOrHigher ? language : null,
+                OperatingSystem = isBasicOrHigher ? operatingSystem : null,
                 ScreenResolution = null
             };
             _dbContext.ClickStats.Add(clickStat);

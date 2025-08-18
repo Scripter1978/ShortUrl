@@ -20,6 +20,7 @@ namespace ShortUrl.Pages.Account
         {
             _userManager = userManager;
             _dbContext = dbContext;
+            ErrorMessage = string.Empty;
         }
 
         public string ErrorMessage { get; set; }

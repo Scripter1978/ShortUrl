@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Mvc.ModelBinding;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.EntityFrameworkCore;
 using ShortUrl.Data;
+using ShortUrl.Helpers;
 using ShortUrl.Models;
 
 namespace ShortUrl.Pages;
@@ -25,13 +26,22 @@ namespace ShortUrl.Pages;
         }
 
         [BindProperty]
-        public VCard VCard { get; set; } = new VCard();
+        public VCard VCard { get; set; } = new VCard 
+        { 
+            UserId = "", // Will be set properly in OnGet
+            FirstName = "" // Temporary initial value
+        };
         
         public List<VCard> UserVCards { get; set; } = new List<VCard>();
 
         public async Task<IActionResult> OnGetAsync(int? id = null)
         {
             var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+            if (userId != null)
+            {
+                // Initialize the UserId for any new VCard
+                VCard.UserId = userId;
+            }
             
             UserVCards = await _dbContext.VCards
                 .Where(v => v.UserId == userId)
@@ -54,10 +64,19 @@ namespace ShortUrl.Pages;
         public async Task<IActionResult> OnPostAsync()
         {
             var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
-            
+            if (userId == null)
+            {
+                ModelState.AddModelError(string.Empty, "User identification failed.");
+                await OnGetAsync();
+                return Page();
+            }
         
             VCard.UserId = userId;
-            VCard.User = await _userManager.FindByIdAsync(userId);
+            var user = await _userManager.FindByIdAsync(userId);
+            if (user != null)
+            {
+                VCard.User = user;
+            }
             
             ModelState.ClearValidationState("VCard.UserId");
             ModelState.ClearValidationState("VCard.User");
@@ -76,6 +95,17 @@ namespace ShortUrl.Pages;
 
             if (VCard.Id == 0)
             {
+                // Check limit for new vCards
+                var currentCount = await _dbContext.VCards.CountAsync(v => v.UserId == userId && !v.IsDeleted);
+                var limit = UrlLimiter.GetVCardLimitForUser(User);
+
+                if (currentCount >= limit)
+                {
+                    ModelState.AddModelError(string.Empty, $"You have reached your limit of {limit.Value} vCards.");
+                    await OnGetAsync();
+                    return Page();
+                }
+                
                 // New vCard
                 _dbContext.VCards.Add(VCard);
             }

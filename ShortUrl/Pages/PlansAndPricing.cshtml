@@ -6,8 +6,8 @@
 
 <div class="container py-4">
   <h1 class="text-center mb-4">Plans &amp; Pricing</h1>
-  <div class="row">
-    <div class="col-md-3 mb-4">
+  <div class="row justify-content-center">
+    <div class="col-md-5 mb-4">
       <div class="card shadow-sm">
         <div class="card-header bg-primary text-white text-center">
           <h4>Free</h4>
@@ -15,43 +15,33 @@
         <div class="card-body text-center">
           <p class="h2">$0</p>
           <p>Basic features for creating and managing URLs.</p>
+          <ul class="list-unstyled text-start mt-3 mb-4">
+            <li><i class="fas fa-check text-success me-2"></i>Up to 10 Shortened URLs</li>
+            <li><i class="fas fa-check text-success me-2"></i>1 VCard</li>
+            <li><i class="fas fa-check text-success me-2"></i>Basic Analytics</li>
+          </ul>
           <a class="btn btn-outline-primary" asp-page="/Account/Register">Sign Up</a>
         </div>
       </div>
     </div>
-    <div class="col-md-3 mb-4">
-      <div class="card shadow-sm">
+    <div class="col-md-5 mb-4">
+      <div class="card shadow-sm border-success">
         <div class="card-header bg-success text-white text-center">
           <h4>Basic</h4>
         </div>
         <div class="card-body text-center">
-          <p class="h2">$5<span class="fs-6">/month</span></p>
-          <p>Advanced analytics and reports.</p>
+          <p class="h2">$15<span class="fs-6">/month</span></p>
+          <p>All features included</p>
+          <ul class="list-unstyled text-start mt-3 mb-4">
+            <li><i class="fas fa-check text-success me-2"></i>Up to 200 Shortened URLs</li>
+            <li><i class="fas fa-check text-success me-2"></i>Up to 50 VCards</li>
+            <li><i class="fas fa-check text-success me-2"></i>Advanced Analytics and Reports</li>
+            <li><i class="fas fa-check text-success me-2"></i>Custom URLs</li>
+            <li><i class="fas fa-check text-success me-2"></i>UTM Parameters</li>
+            <li><i class="fas fa-check text-success me-2"></i>Password Protection</li>
+            <li><i class="fas fa-check text-success me-2"></i>QR Code Generation</li>
+          </ul>
           <a class="btn btn-outline-success" asp-page="/Account/Upgrade">Choose Plan</a>
-        </div>
-      </div>
-    </div>
-    <div class="col-md-3 mb-4">
-      <div class="card shadow-sm">
-        <div class="card-header bg-primary text-white text-center">
-          <h4>Professional</h4>
-        </div>
-        <div class="card-body text-center">
-          <p class="h2">$10<span class="fs-6">/month</span></p>
-          <p>UTM parameters, URL editing, and more.</p>
-          <a class="btn btn-outline-primary" asp-page="/Account/Upgrade">Choose Plan</a>
-        </div>
-      </div>
-    </div>
-    <div class="col-md-3 mb-4">
-      <div class="card shadow-sm">
-        <div class="card-header bg-dark text-white text-center">
-          <h4>Enterprise</h4>
-        </div>
-        <div class="card-body text-center">
-          <p class="h2">$20<span class="fs-6">/month</span></p>
-          <p>QR codes, enhanced support, and premium features.</p>
-          <a class="btn btn-outline-dark" asp-page="/Account/Upgrade">Choose Plan</a>
         </div>
       </div>
     </div>

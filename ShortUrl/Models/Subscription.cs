@@ -5,9 +5,9 @@ namespace ShortUrl.Models;
 public class MemberSubscription
 {
     public int Id { get; set; }
-    public string UserId { get; set; }
-    public IdentityUser User { get; set; }
-    public string PlanType { get; set; } // "Free", "Basic", "Professional", "Enterprise"
+    public required string UserId { get; set; }
+    public IdentityUser? User { get; set; }
+    public required string PlanType { get; set; } // "Free", "Basic", "Professional", "Enterprise"
     public bool IsActive { get; set; } = true;
     public DateTime StartDate { get; set; } = DateTime.UtcNow;
     public DateTime? EndDate { get; set; }

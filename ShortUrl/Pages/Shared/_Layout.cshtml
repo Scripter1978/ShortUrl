@@ -20,6 +20,25 @@
      
 </head>
 <body>
+<!-- Privacy Consent Banner -->
+<div id="privacy-consent-banner" class="privacy-banner" style="display: none;">
+    <div class="container">
+        <div class="row align-items-center">
+            <div class="col-md-8">
+                <p class="mb-2 mb-md-0">
+                    This website collects IP addresses to provide geolocation features and analytics. 
+                    We respect your privacy and give you control over this data collection.
+                    <a href="/Privacy" class="text-primary">Learn more</a>
+                </p>
+            </div>
+            <div class="col-md-4 text-md-end">
+                <button id="privacy-accept" class="btn btn-sm btn-primary me-2">Accept</button>
+                <button id="privacy-decline" class="btn btn-sm btn-outline-secondary">Decline</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <header>
 <nav class="navbar navbar-expand-lg navbar-modern fixed-top">
     <div class="container">
@@ -47,14 +66,14 @@
                         <i class="fas fa-home me-1"></i>Home
                     </a>
 
-                    @if (User.IsInRole("Basic") || User.IsInRole("Professional") || User.IsInRole("Enterprise"))
+                    @if (User.IsInRole("Basic"))
                     {
                         <a class="nav-link @(Context.Request.Path == "/Stats" ? "active" : "")" href="/Stats">
                             <i class="fas fa-chart-line me-1"></i>Stats
                         </a>
                     }
 
-                    @if (User.IsInRole("Free") || User.IsInRole("Basic") || User.IsInRole("Professional"))
+                    @if (User.IsInRole("Free"))
                     {
                         <a class="nav-link btn-primary" asp-page="/Account/Upgrade">
                             <i class="fas fa-arrow-up me-1"></i>Upgrade
@@ -65,15 +84,7 @@
                         <a class="nav-link dropdown-toggle d-flex align-items-center" href="#" role="button" data-bs-toggle="dropdown">
                             <i class="fas fa-user-circle me-1"></i>
                             @User.Identity.Name?.Split('@').FirstOrDefault()
-                            @if (User.IsInRole("Professional"))
-                            {
-                                <span class="badge bg-primary badge-role">Pro</span>
-                            }
-                            else if (User.IsInRole("Enterprise"))
-                            {
-                                <span class="badge bg-dark badge-role">Enterprise</span>
-                            }
-                            else if (User.IsInRole("Basic"))
+                            @if (User.IsInRole("Basic"))
                             {
                                 <span class="badge bg-success badge-role">Basic</span>
                             }
@@ -91,6 +102,7 @@
                             <li><hr class="dropdown-divider"></li>
                             <li>
                                 <form method="post" action="/Account/Logout" class="d-inline">
+                                    @Html.AntiForgeryToken()
                                     <button type="submit" class="dropdown-item">
                                         <i class="fas fa-sign-out-alt me-2"></i>Logout
                                     </button>
@@ -199,6 +211,30 @@
                 // Save preference
                 const theme = document.body.classList.contains('dark-mode') ? 'dark' : 'light';
                 localStorage.setItem('theme', theme);
+            });
+        });
+
+        // Privacy consent banner
+        document.addEventListener('DOMContentLoaded', function() {
+            const privacyBanner = document.getElementById('privacy-consent-banner');
+            const privacyAccept = document.getElementById('privacy-accept');
+            const privacyDecline = document.getElementById('privacy-decline');
+
+            // Show the banner if not already accepted or declined
+            if (!localStorage.getItem('privacy-consent')) {
+                privacyBanner.style.display = 'block';
+            }
+
+            privacyAccept.addEventListener('click', function() {
+                // User accepted, hide banner and set consent in localStorage
+                privacyBanner.style.display = 'none';
+                localStorage.setItem('privacy-consent', 'accepted');
+            });
+
+            privacyDecline.addEventListener('click', function() {
+                // User declined, hide banner and set consent in localStorage
+                privacyBanner.style.display = 'none';
+                localStorage.setItem('privacy-consent', 'declined');
             });
         });
     </script> 

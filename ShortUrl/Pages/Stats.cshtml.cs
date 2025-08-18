@@ -35,14 +35,14 @@ namespace ShortUrl.Pages
         }
 
         public UrlShort? UrlShort { get; set; }
-        public string ShortenedUrl { get; set; }
+        public string ShortenedUrl { get; set; } = string.Empty;
         public List<ClickStat> ClickStats { get; set; } = [];
         public Dictionary<int, int> ClickCountsByDestination { get; set; } = new();
         public Dictionary<int, int> ClickCountsByOgMetadata { get; set; } = new();
-        public string ErrorMessage { get; set; }
+        public string ErrorMessage { get; set; } = string.Empty;
         public List<string> Dates { get; set; } = [];
         public List<int> Clicks { get; set; } = [];
-        public string CsvData { get; set; }
+        public string CsvData { get; set; } = string.Empty;
         public bool IsProfessionalOrHigher { get; set; }
         public List<UrlShort> UserUrls { get; set; } = [];
         public int TotalClicks { get; set; } = 0;
@@ -55,12 +55,23 @@ namespace ShortUrl.Pages
         public int TotalUrls { get; set; }
         public int TotalPages { get; set; }
 
-        
+        private int? Id { get;set; } 
+        private DateTime? StartDate { get;set; } 
+        private DateTime? EndDate{ get;set; } 
         public async Task<IActionResult> OnGetAsync(int? id, DateTime? startDate, DateTime? endDate)
         {
             try
             {
-                var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+                Id = id;
+                StartDate = startDate;
+                EndDate = endDate;
+                var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                
+                if (userId == null)
+                {
+                    ErrorMessage = "User identification failed.";
+                    return Page();
+                }
 
                 // Show all URLs if no specific ID is provided
                 if (id is null or <= 0)
@@ -115,10 +126,13 @@ namespace ShortUrl.Pages
 
                     // Get user role information
                     var user = await _userManager.FindByIdAsync(userId);
-                    IsProfessionalOrHigher = await _userManager.IsInRoleAsync(user, "Professional") ||
-                                             await _userManager.IsInRoleAsync(user, "Enterprise");
+                    if (user != null)
+                    {
+                        IsProfessionalOrHigher = await _userManager.IsInRoleAsync(user, "Professional") ||
+                                                await _userManager.IsInRoleAsync(user, "Enterprise");
+                    }
 
-                    await _auditService.LogAsync(User.Identity?.Name, "Viewed all URL stats", "UrlShort",
+                    await _auditService.LogAsync(User.Identity?.Name ?? "Unknown", "Viewed all URL stats", "UrlShort",
                         "Stats viewed");
                     return Page();
                 }
@@ -139,7 +153,7 @@ namespace ShortUrl.Pages
                 {
                     ErrorMessage = "No URL found for the provided ID.";
 
-                    await _auditService.LogAsync(User.Identity?.Name, $"Failed to find URL for ID: {id}",
+                    await _auditService.LogAsync(User.Identity?.Name ?? "Unknown", $"Failed to find URL for ID: {id}",
                         "UrlShort", "URL not found");
                     return Page();
                 }
@@ -149,7 +163,7 @@ namespace ShortUrl.Pages
                 {
                     ErrorMessage = "You are not authorized to view statistics for this URL.";
 
-                    await _auditService.LogAsync(User.Identity?.Name, $"Unauthorized stats access for ID: {id}",
+                    await _auditService.LogAsync(User.Identity?.Name ?? "Unknown", $"Unauthorized stats access for ID: {id}",
                         "UrlShort", "Unauthorized");
                     return Page();
                 }
@@ -158,7 +172,7 @@ namespace ShortUrl.Pages
                 {
                     ErrorMessage = "This URL has expired.";
 
-                    await _auditService.LogAsync(User.Identity?.Name,
+                    await _auditService.LogAsync(User.Identity?.Name ?? "Unknown",
                         $"Attempted to view stats for expired URL: {id}", "UrlShort", "Expired URL");
                     return Page();
                 }
@@ -185,16 +199,22 @@ namespace ShortUrl.Pages
                 ClickCountsByOgMetadata = UrlShort.ClickStats
                     ?.GroupBy(c => c.OgMetadataId)
                     .ToDictionary(g => g.Key ?? 0, g => g.Count()) ?? new Dictionary<int, int>();
-                IsProfessionalOrHigher = (
+                
+                // Add null check for UrlShort.User
+                IsProfessionalOrHigher = UrlShort.User != null && (
                     await _userManager.IsInRoleAsync(UrlShort.User, "Professional") ||
                     await _userManager.IsInRoleAsync(UrlShort.User, "Enterprise"));
-                // Prepare chart data
-                var clickGroups = ClickStats
-                    .GroupBy(c => c.ClickedAt.Date)
-                    .OrderBy(g => g.Key)
-                    .ToList();
-                Dates = clickGroups.Select(g => g.Key.ToString("yyyy-MM-dd")).ToList();
-                Clicks = clickGroups.Select(g => g.Count()).ToList();
+                
+                // Prepare chart data with null check
+                if (ClickStats != null)
+                {
+                    var clickGroups = ClickStats
+                        .GroupBy(c => c.ClickedAt.Date)
+                        .OrderBy(g => g.Key)
+                        .ToList();
+                    Dates = clickGroups.Select(g => g.Key.ToString("yyyy-MM-dd")).ToList();
+                    Clicks = clickGroups.Select(g => g.Count()).ToList();
+                }
 
                 // Prepare CSV data
                 var headers = new List<string>
@@ -203,23 +223,26 @@ namespace ShortUrl.Pages
                     "Screen Resolution"
                 };
                 var csvHeader = string.Join(",", headers);
-                var csvRows = ClickStats.Select(stat => string.Join(",", new[]
+                if (ClickStats != null)
                 {
-                    $"\"{stat.ClickedAt:g}\"",
-                    $"\"{stat.IpAddress ?? ""}\"",
-                    $"\"{stat.Country ?? ""}\"",
-                    $"\"{stat.City ?? ""}\"",
-                    $"\"{stat.Referrer ?? ""}\"",
-                    $"\"{stat.Device ?? ""}\"",
-                    $"\"{stat.Browser ?? ""}\"",
-                    $"\"{stat.OperatingSystem ?? ""}\"",
-                    $"\"{stat.Language ?? ""}\"",
-                    $"\"{stat.ScreenResolution ?? ""}\""
-                }));
-                CsvData = string.Join("\n", new[] { csvHeader }.Concat(csvRows));
+                    var csvRows = ClickStats.Select(stat => string.Join(",", new[]
+                    {
+                        $"\"{stat.ClickedAt:g}\"",
+                        $"\"{stat.IpAddress ?? ""}\"",
+                        $"\"{stat.Country ?? ""}\"",
+                        $"\"{stat.City ?? ""}\"",
+                        $"\"{stat.Referrer ?? ""}\"",
+                        $"\"{stat.Device ?? ""}\"",
+                        $"\"{stat.Browser ?? ""}\"",
+                        $"\"{stat.OperatingSystem ?? ""}\"",
+                        $"\"{stat.Language ?? ""}\"",
+                        $"\"{stat.ScreenResolution ?? ""}\""
+                    }));
+                    CsvData = string.Join("\n", new[] { csvHeader }.Concat(csvRows));
+                }
 
                 ShortenedUrl = $"{Request.Scheme}://{Request.Host}/{UrlShort.Code}";
-                await _auditService.LogAsync(User.Identity?.Name, $"Viewed stats for URL ID: {id}", "UrlShort",
+                await _auditService.LogAsync(User.Identity?.Name ?? "Unknown", $"Viewed stats for URL ID: {id}", "UrlShort",
                     "Stats viewed");
                 return Page();
             }
@@ -227,7 +250,7 @@ namespace ShortUrl.Pages
             {
                 _logger.LogError(ex, "Error retrieving stats for URL ID: {Id}", id);
                 ErrorMessage = "An error occurred while retrieving statistics. Please try again later.";
-                await _auditService.LogAsync(User.Identity?.Name, $"Error viewing stats", "UrlShort",
+                await _auditService.LogAsync(User.Identity?.Name ?? "Unknown", $"Error viewing stats", "UrlShort",
                     ex.Message);
                 return Page();
             }
@@ -241,6 +264,7 @@ namespace ShortUrl.Pages
                 .ExecuteUpdateAsync(setters => setters
                     .SetProperty(v => v.IsDeleted, true)
                     .SetProperty(v => v.DeletedAt, DateTime.UtcNow));
+            await OnGetAsync(Id, StartDate, EndDate);
             return Page();
         }
     }

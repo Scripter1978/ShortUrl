@@ -10,7 +10,7 @@ using ShortUrl.Models;
 
 namespace ShortUrl.Pages.Account
 {
-    [Authorize(Roles = "Free,Basic,Professional")]
+    [Authorize(Roles = "Free,Basic")]
     public class UpgradeModel : PageModel
     {
         private readonly UserManager<IdentityUser> _userManager;
@@ -25,6 +25,10 @@ namespace ShortUrl.Pages.Account
             _userManager = userManager;
             _configuration = configuration;
             _dbContext = dbContext;
+            Input = new InputModel
+            {
+                SubscriptionTier = null
+            };
         }
 
         [BindProperty]
@@ -32,7 +36,7 @@ namespace ShortUrl.Pages.Account
 
         public class InputModel
         {
-            public string SubscriptionTier { get; set; } // Basic, Professional, Enterprise
+            public required string? SubscriptionTier { get; set; } // Basic, Professional, Enterprise
         }
 
         public IActionResult OnGet()

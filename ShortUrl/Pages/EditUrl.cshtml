@@ -8,7 +8,7 @@
     ViewData["Title"] = "Edit URL";
 }
 
-@if (!SignInManager.IsSignedIn(User) || !(await UserManager.IsInRoleAsync(await UserManager.GetUserAsync(User), "Professional") || await UserManager.IsInRoleAsync(await UserManager.GetUserAsync(User), "Enterprise")))
+@if (!SignInManager.IsSignedIn(User) || !(await UserManager.IsInRoleAsync((await UserManager.GetUserAsync(User))!, "Professional") || await UserManager.IsInRoleAsync((await UserManager.GetUserAsync(User))!, "Enterprise")))
 {
     <h1>Access Denied</h1>
     <p>Only Professional or Enterprise users can edit URLs. Please <a asp-page="/Account/Login">log in</a> with an appropriate account.</p>
@@ -72,7 +72,7 @@ else
             }
         </div>
         <button type="button" onclick="addOgVariation()" class="btn btn-secondary mb-2">Add Another Metadata Variation</button>
-        @if (await UserManager.IsInRoleAsync(await UserManager.GetUserAsync(User), "Enterprise"))
+        @if (await UserManager.IsInRoleAsync((await UserManager.GetUserAsync(User))!, "Enterprise"))
         {
             <div class="form-group">
                 <label asp-for="Input.ExpirationDate">Expiration Date (optional)</label>

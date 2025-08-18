@@ -78,7 +78,7 @@ body.dark-mode .terms-content p,
 body.dark-mode .terms-content span,
 body.dark-mode .terms-content h1,
 body.dark-mode .terms-content li {
-  color: #ffffff !important;
+  color: #000000 !important;
 }
 
 /* Dark mode text colors and styling */
@@ -107,6 +107,11 @@ body.dark-mode p,
 body.dark-mode .validation-summary-errors {
   color: #000000;
 }
+
+body.dark-mode .container h1{
+    color: #ffffff !important;
+}
+
 
 card-header.dark-mode h4{
     color: #ffffff !important;

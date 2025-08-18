@@ -6,16 +6,17 @@ namespace ShortUrl.Models;
 public class VCard
 {
     public int Id { get; set; }
-    public string UserId { get; set; }
-    public string FirstName { get; set; }
+    public required string UserId { get; set; }
+    [StringLength(50)]
+    public required string FirstName { get; set; }
+    [StringLength(50)]
     public string? LastName { get; set; }
     public string? Organization { get; set; }
     public string? JobTitle { get; set; }
     [EmailAddress]
     public string? Email { get; set; }
     
-    [RegularExpression(@"^\+?(\d[\d-. ]+)?(\([\d-. ]+\))?[\d-. ]+\d$", 
-        ErrorMessage = "Please enter a valid phone number")]
+    [Phone]
     public string? Phone { get; set; }
     
     [RegularExpression(@"^\+?(\d[\d-. ]+)?(\([\d-. ]+\))?[\d-. ]+\d$", 
@@ -38,5 +39,5 @@ public class VCard
     // Soft delete properties
     public bool IsDeleted { get; set; } = false;
     public DateTime? DeletedAt { get; set; }
-    public IdentityUser User { get; set; }
+    public IdentityUser? User { get; set; }
 }

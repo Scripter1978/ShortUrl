@@ -2,6 +2,8 @@
 Microsoft Visual Studio Solution File, Format Version 12.00
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ShortUrl", "ShortUrl\ShortUrl.csproj", "{0D45D599-9F9F-4EB5-BC45-4F600BA0097E}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ShortUrl.Tests", "ShortUrl.Tests\ShortUrl.Tests.csproj", "{57C56F16-EC23-434F-8CC4-1997EAE9B18F}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -12,5 +14,9 @@ Global
 		{0D45D599-9F9F-4EB5-BC45-4F600BA0097E}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{0D45D599-9F9F-4EB5-BC45-4F600BA0097E}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{0D45D599-9F9F-4EB5-BC45-4F600BA0097E}.Release|Any CPU.Build.0 = Release|Any CPU
+		{57C56F16-EC23-434F-8CC4-1997EAE9B18F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{57C56F16-EC23-434F-8CC4-1997EAE9B18F}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{57C56F16-EC23-434F-8CC4-1997EAE9B18F}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{57C56F16-EC23-434F-8CC4-1997EAE9B18F}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal
